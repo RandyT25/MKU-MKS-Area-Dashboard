@@ -24,9 +24,9 @@
   <div class="dl-wrap" id="dl-wrap">
     <button class="dl-btn" onclick="toggleDL()">⬇ Download <span class="dl-chev">▼</span></button>
     <div class="dl-menu">
-      <button class="dl-item" onclick="dlCSV()">📊 <div><span>Excel / CSV</span><span class="dl-sub">SO, Stock</span></div></button>
+      <button class="dl-item" onclick="dlPDF()">📄 <div><span>Target vs Achievement</span><span class="dl-sub">Full PDF report</span></div></button>
       <div class="dl-divider"></div>
-      <button class="dl-item" onclick="dlPDF()">📄 <div><span>PDF Summary</span><span class="dl-sub">Printable 1-page report</span></div></button>
+      <button class="dl-item" onclick="dlExcel()">📊 <div><span>Excel — Full Data</span><span class="dl-sub">SO · Delivery · Stock (3 sheets)</span></div></button>
     </div>
   </div>
 </div>
@@ -89,6 +89,10 @@
       <div class="card-hdr"><div class="card-title"><div class="ci mks">📋</div>Area Performance Detail</div></div>
       <div class="tbl-wrap"><table class="tbl" id="tbl-area"></table></div>
     </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title"><div class="ci org">🏝️</div>Balian Achievement</div><span class="card-sub">Commission only — not included in target</span></div>
+      <div class="tbl-wrap"><table class="tbl" id="tbl-balian"></table></div>
+    </div>
   </div>
 
   <div class="tc" id="tc-so">
@@ -127,6 +131,7 @@
 </div>
 
 <!-- LOAD ORDER: data.js first (defines RAW), then Chart.js via dynamic loader, then app.js runs inside onload -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="data.js"></script>
 <script>
 (function() {

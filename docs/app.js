@@ -272,6 +272,19 @@ function renderTarget(){
       <td class="num"><strong>${fmtRp((nestleA||[]).reduce((s,n)=>s+n.achievement,0))}</strong></td>
       <td><span class="badge ${badgeCls(pct((nestleA||[]).reduce((s,n)=>s+n.achievement,0),(nestleA||[]).reduce((s,n)=>s+n.target,0)))}">${pct((nestleA||[]).reduce((s,n)=>s+n.achievement,0),(nestleA||[]).reduce((s,n)=>s+n.target,0))}%</span></td>
     </tr></tfoot>`;
+
+  // ── Balian table ──────────────────────────────────────────────
+  const balian=getTgt().balian||{};
+  const balianRows=Object.entries(balian).filter(([,v])=>v.ach>0);
+  const balianTotal=balianRows.reduce((s,[,v])=>s+v.ach,0);
+  const balianEl=document.getElementById('tbl-balian');
+  if(balianEl){
+    if(balianRows.length===0){
+      balianEl.innerHTML='<tbody><tr><td colspan="3" style="text-align:center;color:var(--txt3);padding:20px">No Balian data for this date</td></tr></tbody>';
+    } else {
+      balianEl.innerHTML=`<thead><tr><th>Area</th><th>Sales</th><th class="num">Achievement</th></tr></thead><tbody>${balianRows.map(([area,v])=>`<tr><td style="font-weight:600">${area}</td><td style="color:var(--txt2);font-size:.68rem">${v.sales}</td><td class="num" style="font-weight:700;color:var(--org)">${fmtRp(v.ach)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2"><strong>GRAND TOTAL</strong></td><td class="num"><strong style="color:var(--org)">${fmtRp(balianTotal)}</strong></td></tr></tfoot>`;
+    }
+  }
 }
 
 function renderSO(){
@@ -441,48 +454,34 @@ function toggleDL(){document.getElementById('dl-wrap').classList.toggle('open');
 document.addEventListener('click',e=>{if(!e.target.closest('.dl-wrap')&&!e.target.closest('.date-dd-wrap')){document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));document.querySelectorAll('.date-dd-wrap').forEach(w=>w.classList.remove('open'));}});
 
 function dlExcel(){
+  if(typeof XLSX==='undefined'){alert('Excel library not loaded. Please refresh the page.');return;}
   const mon=RAW.month||'April 2026';
   const wb=XLSX.utils.book_new();
-  const H={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1E3A5F'}},alignment:{horizontal:'center'}};
   const addSheet=(name,headers,rows)=>{
     const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
-    // Style header row
-    headers.forEach((_,ci)=>{
-      const cell=XLSX.utils.encode_cell({r:0,c:ci});
-      if(!ws[cell])ws[cell]={v:headers[ci],t:'s'};
-      ws[cell].s=H;
-    });
-    // Auto column widths
-    const cols=headers.map((h,ci)=>{
-      const max=Math.max(h.length,...rows.map(r=>String(r[ci]||'').length));
-      return{wch:Math.min(max+2,40)};
-    });
+    const cols=headers.map((h,ci)=>({wch:Math.min(Math.max(h.length,...rows.map(r=>String(r[ci]||'').length))+2,45)}));
     ws['!cols']=cols;
     ws['!freeze']={xSplit:0,ySplit:1};
     XLSX.utils.book_append_sheet(wb,ws,name);
   };
-
-  // ── Sheet 1: Sales Orders ────────────────────────────────────
+  // Sheet 1: Sales Orders
   const soRows=getSO();
   addSheet('Sales Orders',
     ['Date','No SO','Division','Customer','Sales Rep','Product','SO Qty','Unit','FJ Qty','Revenue (Rp)','Type','Status'],
     soRows.map(r=>[r.date,r.no_so,r.division,r.customer,r.sales,r.product,r.so_pcs,r.unit,r.fj_pcs,Math.round(r.revenue),r.type,r.status])
   );
-
-  // ── Sheet 2: Delivery ────────────────────────────────────────
+  // Sheet 2: Delivery
   const delRows=getDel();
   addSheet('Delivery',
     ['Date','Division','Area','Customer','Sales Rep','Product','Qty','Unit','Status'],
     delRows.map(r=>[r.date||RAW.latest,r.co||'',r.area||'',r.customer||'',r.sales||'',r.product||'',r.qty_bs||0,r.unit||'',r.ket||''])
   );
-
-  // ── Sheet 3: Stock ───────────────────────────────────────────
+  // Sheet 3: Stock
   const stk=getStk();
   addSheet('Stock',
     ['Division','Code','Product','Unit','Stock Qty','Avg/Month','Buffer Days','Status'],
     stk.map(s=>[s.co,s.code||s.c||'',s.name||s.n||'',s.unit||s.u||'',s.saldo||s.s||0,Math.round(s.avg3m||s.a||0),(s.buf||s.bf||0)>0?parseFloat((s.buf||s.bf||0).toFixed(1)):0,s.st.toUpperCase()])
   );
-
   XLSX.writeFile(wb,'MKU_MKS_Data_'+mon.replace(' ','_')+'.xlsx');
   document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));
 }
@@ -500,127 +499,36 @@ function dlPDF(){
   const top5=Object.entries(agg.rep_rev).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const dateLabel=activeDate==='ALL'?'All Days':fmtD(activeDate);
   const colP=p=>p>=timePct?'#059669':p>=(timePct*0.75)?'#d97706':'#dc2626';
-
+  const divMapPdf={};RAW.so.forEach(r=>{divMapPdf[r.sales]=r.division;});
   const htmlStr=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${mon} Report</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Plus Jakarta Sans',sans-serif;padding:28px 32px;font-size:11px;color:#1a2035;background:#fff;}
-.hdr{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;padding-bottom:14px;border-bottom:3px solid #1a2035;}
-.ht{font-size:1.4rem;font-weight:800;}.mku{color:#dc2626;}.mks{color:#2563eb;}
-.badge-date{background:#eff4ff;color:#2563eb;font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:4px;margin-top:6px;display:inline-block;}
-.section-title{font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#8a93b0;margin:16px 0 8px;padding-bottom:5px;border-bottom:1px solid #e4e8ef;}
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px;}
-.kpi{border:1px solid #e4e8ef;border-radius:8px;padding:10px 12px;border-left:3px solid;}
-.kl{font-size:.55rem;font-weight:700;color:#8a93b0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
-.kv{font-size:1.05rem;font-weight:800;}
-.tgt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px;}
-.tgt{border:1px solid #e4e8ef;border-radius:8px;padding:10px 12px;}
-.tn{font-size:.63rem;font-weight:700;margin-bottom:4px;}
-.tp{font-size:1.1rem;font-weight:800;margin-bottom:2px;}
-.pb{background:#e4e8ef;border-radius:99px;height:5px;overflow:hidden;margin-bottom:3px;}
-.pbf{height:5px;border-radius:99px;}
-.psub{font-size:.57rem;color:#8a93b0;}
-.grand{background:linear-gradient(135deg,#eff4ff,#dce8ff);border:1px solid #c7d8fc;border-radius:8px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
-.grand-pct{font-size:2rem;font-weight:800;color:#1a2035;}
-.grand-sub{font-size:.65rem;color:#4a5472;}
-table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:12px;}
-th{background:#f4f6f9;padding:6px 8px;text-align:left;font-size:.56rem;font-weight:700;color:#8a93b0;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e4e8ef;}
-td{padding:6px 8px;border-bottom:1px solid #f4f6f9;vertical-align:middle;}
-td.r{text-align:right;}
-.pbar{background:#e4e8ef;border-radius:99px;height:4px;width:80px;display:inline-block;vertical-align:middle;}
-.pbar-f{height:4px;border-radius:99px;}
-.badge{display:inline-block;font-size:.56rem;font-weight:700;padding:2px 6px;border-radius:3px;}
-tfoot td{font-weight:700;background:#f8f9fd;border-top:2px solid #e4e8ef;}
-.ftr{margin-top:18px;padding-top:10px;border-top:1px solid #e4e8ef;display:flex;justify-content:space-between;font-size:.57rem;color:#8a93b0;}
-.page2{page-break-before:always;padding-top:20px;}
-@media print{body{padding:14px 18px;}@page{margin:1cm;size:A4;}}
-</style></head><body>
-
-<div class="hdr">
-  <div>
-    <div class="ht"><span class="mku">MKU</span> &amp; <span class="mks">MKS</span> — ${mon} Report</div>
-    <div class="badge-date">📅 ${dateLabel} &nbsp;·&nbsp; Generated ${new Date().toLocaleDateString('id-ID')}</div>
-  </div>
-  <div style="font-size:.63rem;color:#8a93b0;text-align:right">Area Manager Dashboard<br><strong style="color:#1a2035">Confidential</strong></div>
-</div>
-
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Plus Jakarta Sans',sans-serif;padding:28px 32px;font-size:11px;color:#1a2035;background:#fff;}.hdr{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;padding-bottom:14px;border-bottom:3px solid #1a2035;}.ht{font-size:1.4rem;font-weight:800;}.mku{color:#dc2626;}.mks{color:#2563eb;}.badge-date{background:#eff4ff;color:#2563eb;font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:4px;margin-top:6px;display:inline-block;}.section-title{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#8a93b0;margin:14px 0 7px;padding-bottom:5px;border-bottom:1px solid #e4e8ef;}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px;}.kpi{border:1px solid #e4e8ef;border-radius:8px;padding:10px 12px;border-left:3px solid;}.kl{font-size:.55rem;font-weight:700;color:#8a93b0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}.kv{font-size:1.05rem;font-weight:800;}.tgt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px;}.tgt{border:1px solid #e4e8ef;border-radius:8px;padding:10px 12px;}.tn{font-size:.63rem;font-weight:700;margin-bottom:4px;}.tp{font-size:1.1rem;font-weight:800;margin-bottom:2px;}.pb{background:#e4e8ef;border-radius:99px;height:5px;overflow:hidden;margin-bottom:3px;}.pbf{height:5px;border-radius:99px;}.psub{font-size:.57rem;color:#8a93b0;}.grand{background:linear-gradient(135deg,#eff4ff,#dce8ff);border:1px solid #c7d8fc;border-radius:8px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}.grand-pct{font-size:2rem;font-weight:800;color:#1a2035;}table{width:100%;border-collapse:collapse;font-size:.67rem;margin-bottom:10px;}th{background:#f4f6f9;padding:6px 8px;text-align:left;font-size:.55rem;font-weight:700;color:#8a93b0;text-transform:uppercase;border-bottom:1px solid #e4e8ef;}td{padding:5px 8px;border-bottom:1px solid #f4f6f9;vertical-align:middle;}td.r{text-align:right;}.pbar{background:#e4e8ef;border-radius:99px;height:4px;width:70px;display:inline-block;vertical-align:middle;overflow:hidden;}.pbar-f{height:4px;border-radius:99px;}.badge{display:inline-block;font-size:.55rem;font-weight:700;padding:2px 6px;border-radius:3px;}tfoot td{font-weight:700;background:#f8f9fd;border-top:2px solid #e4e8ef;}.ftr{margin-top:16px;padding-top:10px;border-top:1px solid #e4e8ef;display:flex;justify-content:space-between;font-size:.57rem;color:#8a93b0;}@media print{body{padding:14px 18px;}@page{margin:1cm;size:A4;}}</style></head><body>
+<div class="hdr"><div><div class="ht"><span class="mku">MKU</span> &amp; <span class="mks">MKS</span> — ${mon} Report</div><div class="badge-date">📅 ${dateLabel} · Generated ${new Date().toLocaleDateString('id-ID')}</div></div><div style="font-size:.63rem;color:#8a93b0;text-align:right">Area Manager Dashboard<br><strong style="color:#1a2035">Confidential</strong></div></div>
 <div class="section-title">📊 Key Performance Indicators</div>
 <div class="kpis">
   <div class="kpi" style="border-left-color:#2563eb"><div class="kl">Total Revenue</div><div class="kv" style="color:#2563eb">${fmtRp(agg.rev)}</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">${agg.cnt} orders · ${agg.cust_cnt} customers</div></div>
   <div class="kpi" style="border-left-color:#059669"><div class="kl">Monthly Target</div><div class="kv" style="color:${colP(tp)}">${tp}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">${fmtRp(tot_a)} / ${fmtRp(tot_t)}</div></div>
   <div class="kpi" style="border-left-color:#7c3aed"><div class="kl">Nestlé Target</div><div class="kv" style="color:${colP(pct(T.NESTLE?.achievement||0,T.NESTLE?.target||1))}">${pct(T.NESTLE?.achievement||0,T.NESTLE?.target||1)}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">${fmtRp(T.NESTLE?.achievement||0)} / ${fmtRp(T.NESTLE?.target||0)}</div></div>
-  <div class="kpi" style="border-left-color:#d97706"><div class="kl">Time Elapsed</div><div class="kv" style="color:#d97706">${timePct}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">Day ${dayNum} of 30 &nbsp;·&nbsp; on-track ≥${timePct}%</div></div>
+  <div class="kpi" style="border-left-color:#d97706"><div class="kl">Time Elapsed</div><div class="kv" style="color:#d97706">${timePct}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">Day ${dayNum} of 30 · on-track ≥${timePct}%</div></div>
 </div>
-
 <div class="section-title">🎯 Target vs Achievement</div>
-<div class="grand">
-  <div><div style="font-size:.6rem;font-weight:700;color:#2563eb;text-transform:uppercase;margin-bottom:4px">🎯 Grand Total (Food + Bev + Nestlé)</div><div style="font-size:.68rem;color:#4a5472">${fmtRp(tot_a)} achieved of ${fmtRp(tot_t)} target</div></div>
-  <div class="grand-pct">${tp}%</div>
-</div>
-<div class="tgt-grid">
-${Object.entries(T).map(([c,t])=>{const p=pct(t.achievement,t.target),col=colP(p);return`<div class="tgt"><div class="tn">${{FOOD:'🍽️ FOOD',BEVERAGE:'🥤 BEVERAGE',NESTLE:'☕ NESTLÉ'}[c]||c}</div><div class="tp" style="color:${col}">${p}%</div><div class="pb"><div class="pbf" style="width:${Math.min(p,100)}%;background:${col}"></div></div><div class="psub">${fmtRp(t.achievement)} / ${fmtRp(t.target)}</div></div>`;}).join('')}
-</div>
-
+<div class="grand"><div><div style="font-size:.6rem;font-weight:700;color:#2563eb;text-transform:uppercase;margin-bottom:4px">🎯 Grand Total (Food + Bev + Nestlé)</div><div style="font-size:.68rem;color:#4a5472">${fmtRp(tot_a)} achieved of ${fmtRp(tot_t)} target</div></div><div class="grand-pct">${tp}%</div></div>
+<div class="tgt-grid">${Object.entries(T).map(([c,t])=>{const p=pct(t.achievement,t.target),col=colP(p);return`<div class="tgt"><div class="tn">${{FOOD:'🍽️ FOOD',BEVERAGE:'🥤 BEVERAGE',NESTLE:'☕ NESTLÉ'}[c]||c}</div><div class="tp" style="color:${col}">${p}%</div><div class="pb"><div class="pbf" style="width:${Math.min(p,100)}%;background:${col}"></div></div><div class="psub">${fmtRp(t.achievement)} / ${fmtRp(t.target)}</div></div>`;}).join('')}</div>
 <div class="section-title">📍 Area Performance Detail</div>
-<table>
-<thead><tr><th>Area</th><th>Sales Rep</th><th class="r">Food Ach</th><th class="r">Bev Ach</th><th class="r">Total Target</th><th class="r">Total Achieved</th><th style="width:100px">Progress (on track ≥${timePct}%)</th></tr></thead>
-<tbody>
-${(areas||[]).map(a=>{const p=a.pct,col=colP(p);return`<tr>
-  <td style="font-weight:600;font-size:.66rem">${a.area}</td>
-  <td style="color:#8a93b0;font-size:.62rem">${a.sales}</td>
-  <td class="r">${fmtRp(a.food_ach)}</td>
-  <td class="r">${fmtRp(a.bev_ach)}</td>
-  <td class="r" style="color:#8a93b0">${fmtRp(a.food_target+a.bev_target)}</td>
-  <td class="r" style="font-weight:700">${fmtRp(a.food_ach+a.bev_ach)}</td>
-  <td><div style="display:flex;align-items:center;gap:5px"><div class="pbar"><div class="pbar-f" style="width:${Math.min(p,100)}%;background:${col}"></div></div><span style="font-weight:700;color:${col}">${p}%</span></div></td>
-</tr>`;}).join('')}
-</tbody>
-<tfoot><tr>
-  <td colspan="2">GRAND TOTAL</td>
-  <td class="r" style="color:#2563eb">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_ach,0))}</td>
-  <td class="r" style="color:#059669">${fmtRp((areas||[]).reduce((s,a)=>s+a.bev_ach,0))}</td>
-  <td class="r">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_target+a.bev_target,0))}</td>
-  <td class="r">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_ach+a.bev_ach,0))}</td>
-  <td><span style="font-weight:700;color:${colP(tp)}">${tp}%</span></td>
-</tr></tfoot>
-</table>
-
+<table><thead><tr><th>Area</th><th>Sales Rep</th><th class="r">Food Ach</th><th class="r">Bev Ach</th><th class="r">Target</th><th class="r">Achieved</th><th>Progress (≥${timePct}%)</th></tr></thead>
+<tbody>${(areas||[]).map(a=>{const p=a.pct,col=colP(p);return`<tr><td style="font-weight:600;font-size:.65rem">${a.area}</td><td style="color:#8a93b0;font-size:.61rem">${a.sales}</td><td class="r">${fmtRp(a.food_ach)}</td><td class="r">${fmtRp(a.bev_ach)}</td><td class="r" style="color:#8a93b0">${fmtRp(a.food_target+a.bev_target)}</td><td class="r" style="font-weight:700">${fmtRp(a.food_ach+a.bev_ach)}</td><td><div style="display:flex;align-items:center;gap:5px"><div class="pbar"><div class="pbar-f" style="width:${Math.min(p,100)}%;background:${col}"></div></div><span style="font-weight:700;color:${col}">${p}%</span></div></td></tr>`;}).join('')}</tbody>
+<tfoot><tr><td colspan="2">GRAND TOTAL</td><td class="r" style="color:#2563eb">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_ach,0))}</td><td class="r" style="color:#059669">${fmtRp((areas||[]).reduce((s,a)=>s+a.bev_ach,0))}</td><td class="r">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_target+a.bev_target,0))}</td><td class="r">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_ach+a.bev_ach,0))}</td><td><span style="font-weight:700;color:${colP(tp)}">${tp}%</span></td></tr></tfoot></table>
 <div class="section-title">☕ Nestlé Channel Detail</div>
-<table>
-<thead><tr><th>Channel</th><th>Sales Rep</th><th class="r">Target</th><th class="r">Achievement</th><th style="width:100px">Progress</th></tr></thead>
-<tbody>
-${(nestleA||[]).map(n=>{const p=pct(n.achievement,n.target),col=colP(p);return`<tr>
-  <td style="font-weight:600">${n.area}</td><td style="color:#8a93b0;font-size:.62rem">${n.sales||'—'}</td>
-  <td class="r" style="color:#8a93b0">${fmtRp(n.target)}</td>
-  <td class="r" style="font-weight:700">${fmtRp(n.achievement)}</td>
-  <td><div style="display:flex;align-items:center;gap:5px"><div class="pbar"><div class="pbar-f" style="width:${Math.min(p,100)}%;background:${col}"></div></div><span style="font-weight:700;color:${col}">${p}%</span></div></td>
-</tr>`;}).join('')}
-</tbody>
-<tfoot><tr>
-  <td colspan="2">GRAND TOTAL</td>
-  <td class="r">${fmtRp((nestleA||[]).reduce((s,n)=>s+n.target,0))}</td>
-  <td class="r">${fmtRp((nestleA||[]).reduce((s,n)=>s+n.achievement,0))}</td>
-  <td><span style="font-weight:700;color:${colP(pct((nestleA||[]).reduce((s,n)=>s+n.achievement,0),(nestleA||[]).reduce((s,n)=>s+n.target,0)))}">${pct((nestleA||[]).reduce((s,n)=>s+n.achievement,0),(nestleA||[]).reduce((s,n)=>s+n.target,0))}%</span></td>
-</tr></tfoot>
-</table>
-
+<table><thead><tr><th>Channel</th><th>Sales Rep</th><th class="r">Target</th><th class="r">Achievement</th><th>Progress</th></tr></thead>
+<tbody>${(nestleA||[]).map(n=>{const p=pct(n.achievement,n.target),col=colP(p);return`<tr><td style="font-weight:600">${n.area}</td><td style="color:#8a93b0;font-size:.61rem">${n.sales||'—'}</td><td class="r" style="color:#8a93b0">${fmtRp(n.target)}</td><td class="r" style="font-weight:700">${fmtRp(n.achievement)}</td><td><div style="display:flex;align-items:center;gap:5px"><div class="pbar"><div class="pbar-f" style="width:${Math.min(p,100)}%;background:${col}"></div></div><span style="font-weight:700;color:${col}">${p}%</span></div></td></tr>`;}).join('')}</tbody>
+<tfoot><tr><td colspan="2">GRAND TOTAL</td><td class="r">${fmtRp((nestleA||[]).reduce((s,n)=>s+n.target,0))}</td><td class="r">${fmtRp((nestleA||[]).reduce((s,n)=>s+n.achievement,0))}</td><td><span style="font-weight:700;color:${colP(pct((nestleA||[]).reduce((s,n)=>s+n.achievement,0),(nestleA||[]).reduce((s,n)=>s+n.target,0)))}">${pct((nestleA||[]).reduce((s,n)=>s+n.achievement,0),(nestleA||[]).reduce((s,n)=>s+n.target,0))}%</span></td></tr></tfoot></table>
 <div class="section-title">👥 Top Sales Reps</div>
-<table>
-<thead><tr><th>#</th><th>Rep</th><th>Division</th><th class="r">Revenue</th></tr></thead>
-<tbody>
-${top5.map(([n,rv],i)=>{const divMapPdf={};RAW.so.forEach(r=>{divMapPdf[r.sales]=r.division;});const div=divMapPdf[n]||'—';return`<tr><td style="font-weight:800;color:#8a93b0">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td><td style="font-weight:700">${n}</td><td><span class="badge" style="background:${div==='MKU Bali'?'#fef2f2':'#eff4ff'};color:${div==='MKU Bali'?'#dc2626':'#2563eb'}">${div==='MKU Bali'?'MKU':div==='MKS Bali'?'MKS':'—'}</span></td><td class="r" style="font-weight:700;color:#2563eb">${fmtRp(rv)}</td></tr>`;}).join('')}
-</tbody>
-</table>
-
-<div class="ftr">
-  <span>MKU &amp; MKS Area Dashboard</span>
-  <span>${mon} · ${dateLabel}</span>
-  <span>Internal Use Only · Confidential</span>
-</div>
+<table><thead><tr><th>#</th><th>Rep</th><th>Division</th><th class="r">Revenue</th></tr></thead>
+<tbody>${top5.map(([n,rv],i)=>{const div=divMapPdf[n]||'—';return`<tr><td style="font-weight:800;color:#8a93b0">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td><td style="font-weight:700">${n}</td><td><span class="badge" style="background:${div==='MKU Bali'?'#fef2f2':'#eff4ff'};color:${div==='MKU Bali'?'#dc2626':'#2563eb'}">${div==='MKU Bali'?'MKU':div==='MKS Bali'?'MKS':'—'}</span></td><td class="r" style="font-weight:700;color:#2563eb">${fmtRp(rv)}</td></tr>`;}).join('')}</tbody></table>
+<div class="ftr"><span>MKU &amp; MKS Area Dashboard</span><span>${mon} · ${dateLabel}</span><span>Internal Use Only · Confidential</span></div>
 </body></html>`;
-
   const w=window.open('','_blank');
+  if(!w){alert('Please allow popups for this site to open the print report.');return;}
   w.document.write(htmlStr);
   w.document.close();
   setTimeout(()=>w.print(),800);
