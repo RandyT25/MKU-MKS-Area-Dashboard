@@ -3,11 +3,11 @@ name: Update Dashboard Data
 on:
   push:
     paths:
-      - "uploads/*.xlsx"   # Trigger only when Excel files are pushed
-  workflow_dispatch:       # Allow manual trigger from GitHub UI
+      - "uploads/**"
+  workflow_dispatch:
 
 permissions:
-  contents: write          # Needed to commit data.js back to repo
+  contents: write
 
 jobs:
   update-dashboard:
@@ -15,43 +15,33 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      # ── 1. Checkout full repo ──────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1   # Shallow clone is fine
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
 
-      # ── 2. Set up Python ──────────────────────────────────────────────────
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # ── 3. Install dependencies ───────────────────────────────────────────
       - name: Install dependencies
         run: pip install pandas openpyxl
 
-      # ── 4. Run pipeline ───────────────────────────────────────────────────
       - name: Run data pipeline
         run: python pipeline/update_data.py
 
-      # ── 5. Commit updated data.js back to repo ────────────────────────────
       - name: Commit and push data.js
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
           git add docs/data.js
-
-          # Only commit if there are actual changes
           if git diff --staged --quiet; then
             echo "No changes to data.js — skipping commit."
           else
-            DATE=$(python -c "import json,pathlib; \
-              txt=pathlib.Path('docs/data.js').read_text(); \
-              raw=json.loads(txt[len('const RAW ='):-1]); \
-              print(raw['latest'])")
+            DATE=$(python -c "import json,pathlib; txt=pathlib.Path('docs/data.js').read_text(); raw=json.loads(txt[len('const RAW ='):-1]); print(raw['latest'])")
             git commit -m "Auto-update dashboard data for $DATE [skip ci]"
             git push
-            echo "✓ data.js committed and pushed."
+            echo "Committed and pushed."
           fi
