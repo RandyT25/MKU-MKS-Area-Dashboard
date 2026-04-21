@@ -268,10 +268,34 @@ function renderTarget(){
       <td><span class="badge ${cls}">${p}%</span></td></tr>`;}).join('')}</tbody>
     <tfoot><tr>
       <td colspan="2"><strong>GRAND TOTAL</strong></td>
-      <td class="num">${fmtRp((nestleA||[]).reduce((s,n)=>s+n.target,0))}</td>
+      <td class="num"><strong>${fmtRp((nestleA||[]).reduce((s,n)=>s+n.target,0))}</strong></td>
       <td class="num"><strong>${fmtRp((nestleA||[]).reduce((s,n)=>s+n.achievement,0))}</strong></td>
       <td><span class="badge ${badgeCls(pct((nestleA||[]).reduce((s,n)=>s+n.achievement,0),(nestleA||[]).reduce((s,n)=>s+n.target,0)))}">${pct((nestleA||[]).reduce((s,n)=>s+n.achievement,0),(nestleA||[]).reduce((s,n)=>s+n.target,0))}%</span></td>
     </tr></tfoot>`;
+
+  // ── Balian table ──────────────────────────────────────────────
+  const tgt=getTgt();
+  const balian=tgt.balian||{};
+  const balianRows=Object.entries(balian).filter(([,v])=>v.ach>0);
+  const balianTotal=balianRows.reduce((s,[,v])=>s+v.ach,0);
+  const balianEl=document.getElementById('tbl-balian');
+  if(balianEl){
+    if(balianRows.length===0){
+      balianEl.innerHTML='<tbody><tr><td colspan="3" style="text-align:center;color:var(--txt3);padding:20px">No Balian data for this date</td></tr></tbody>';
+    } else {
+      balianEl.innerHTML=`
+        <thead><tr><th>Area</th><th>Sales</th><th class="num">Achievement</th></tr></thead>
+        <tbody>${balianRows.map(([area,v])=>`<tr>
+          <td style="font-weight:600">${area}</td>
+          <td style="color:var(--txt2);font-size:.68rem">${v.sales}</td>
+          <td class="num" style="font-weight:700;color:var(--org)">${fmtRp(v.ach)}</td>
+        </tr>`).join('')}</tbody>
+        <tfoot><tr>
+          <td colspan="2"><strong>GRAND TOTAL</strong></td>
+          <td class="num"><strong style="color:var(--org)">${fmtRp(balianTotal)}</strong></td>
+        </tr></tfoot>`;
+    }
+  }
 }
 
 function renderSO(){
