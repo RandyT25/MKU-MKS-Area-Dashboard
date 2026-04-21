@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
 MKU & MKS Dashboard — Data Pipeline
-Reads 5 Excel files from uploads/, updates docs/data.js preserving history.
+Reads 5 Excel files from uploads/, plus DATA_PENCAPAIAN for targets,
+then updates docs/data.js preserving history.
 """
 
 import json
-import os
 import re
 import sys
-import glob
 from datetime import datetime
 from pathlib import Path
 
@@ -18,12 +17,19 @@ except ImportError:
     print("ERROR: pandas not installed. Run: pip install pandas openpyxl")
     sys.exit(1)
 
-# ── Paths ────────────────────────────────────────────────────────────────────
-REPO_ROOT   = Path(__file__).parent.parent
-UPLOADS_DIR = REPO_ROOT / "uploads"
-DATA_JS     = REPO_ROOT / "docs" / "data.js"
+# ── Paths ─────────────────────────────────────────────────────────────────────
+REPO_ROOT    = Path(__file__).parent.parent
+UPLOADS_DIR  = REPO_ROOT / "uploads"
+DATA_JS      = REPO_ROOT / "docs" / "data.js"
 
-# ── Sales name normalisation ──────────────────────────────────────────────────
+# ── Month sheet name map (Bahasa) ─────────────────────────────────────────────
+MONTH_SHEET = {
+    1: "JAN", 2: "FEB", 3: "MAR", 4: "APR",
+    5: "MEI", 6: "JUN", 7: "JUL", 8: "AGU",
+    9: "SEP", 10: "OKT", 11: "NOV", 12: "DES",
+}
+
+# ── Sales name normalisation ───────────────────────────────────────────────────
 SALES_MAP = {
     "I MADE LUIH":               "I Made Luih",
     "I MADE LUIH (SANUR)":       "I Made Luih",
@@ -68,8 +74,19 @@ def norm_sales(raw):
     s = str(raw).strip()
     return SALES_MAP.get(s, s)
 
+def fval(v):
+    """Safe float, returns 0.0 for nan/None."""
+    try:
+        f = float(v)
+        return 0.0 if (f != f) else f
+    except (TypeError, ValueError):
+        return 0.0
 
-# ── Compress functions ────────────────────────────────────────────────────────
+def rint(v):
+    return int(round(fval(v)))
+
+
+# ── Compress functions ─────────────────────────────────────────────────────────
 def compress_so(so_list):
     rep_rev = {}; prod_rev = {}; cust_rev = {}
     mku_rev = 0; mks_rev = 0
@@ -132,9 +149,8 @@ def compress_del(mku_list, mks_list):
     }
 
 
-# ── File parsers ──────────────────────────────────────────────────────────────
+# ── File parsers ───────────────────────────────────────────────────────────────
 def parse_so(path, date_str):
-    """Parse Report_SO_MKU_MKS_[date].xlsx"""
     df = pd.read_excel(path, sheet_name="Sheet", header=None, skiprows=1)
     rows = []
     for _, row in df.iterrows():
@@ -149,25 +165,24 @@ def parse_so(path, date_str):
             "jt":       str(r[4]).strip() if not pd.isna(r[4]) else "",
             "sales":    norm_sales(r[5]),
             "product":  str(r[6]).strip() if not pd.isna(r[6]) else "",
-            "so_pcs":   float(r[7]) if not pd.isna(r[7]) else 0.0,
+            "so_pcs":   fval(r[7]),
             "unit":     str(r[8]).strip() if not pd.isna(r[8]) else "",
-            "fj_pcs":   float(r[9])  if not pd.isna(r[9])  else 0.0,
-            "revenue":  float(r[10]) if not pd.isna(r[10]) else 0.0,
-            "bs_so":    float(r[11]) if not pd.isna(r[11]) else 0.0,
+            "fj_pcs":   fval(r[9]),
+            "revenue":  fval(r[10]),
+            "bs_so":    fval(r[11]),
             "type":     str(r[12]).strip() if not pd.isna(r[12]) else "",
             "status":   str(r[13]).strip() if not pd.isna(r[13]) else "",
             "notes":    str(r[14]).strip() if not pd.isna(r[14]) else "",
         })
     if len(rows) < 100:
         raise ValueError(
-            f"SO file has only {len(rows)} rows — looks like the wrong sheet "
-            f"(Balian-only). Expected 100+ rows from 'Sheet' (not 'Sheet1')."
+            f"SO file has only {len(rows)} rows — looks like wrong sheet "
+            f"(Balian-only). Expected 100+ from 'Sheet' (not 'Sheet1')."
         )
     return rows
 
 
 def parse_stock(path):
-    """Parse Stok_MKU_[date].xlsx or Stok_MKS_[date].xlsx"""
     df = pd.read_excel(path, sheet_name="all product", header=None, skiprows=1)
     items = []
     for _, row in df.iterrows():
@@ -175,22 +190,18 @@ def parse_stock(path):
         code = r[0]
         if pd.isna(code) or str(code).strip().lower() in ("", "nan"):
             continue
-        saldo = float(r[3]) if not pd.isna(r[3]) else 0.0
-        buf   = float(r[8]) if not pd.isna(r[8]) else 0.0
-        if saldo <= 0:
-            st = "out"
-        elif buf < 3:
-            st = "critical"
-        elif buf < 7:
-            st = "low"
-        else:
-            st = "ok"
+        saldo = fval(r[3])
+        buf   = fval(r[8])
+        if saldo <= 0:   st = "out"
+        elif buf < 3:    st = "critical"
+        elif buf < 7:    st = "low"
+        else:            st = "ok"
         items.append({
             "code":  str(code).strip(),
             "name":  str(r[1]).strip() if not pd.isna(r[1]) else "",
             "unit":  str(r[2]).strip() if not pd.isna(r[2]) else "",
             "saldo": saldo,
-            "avg3m": float(r[7]) if not pd.isna(r[7]) else 0.0,
+            "avg3m": fval(r[7]),
             "buf":   buf,
             "st":    st,
         })
@@ -198,7 +209,6 @@ def parse_stock(path):
 
 
 def parse_delivery(path):
-    """Parse MKU_[date].xlsx or MKS_[date].xlsx"""
     df = pd.read_excel(path, sheet_name="Sheet", header=None, skiprows=1)
     rows = []
     for _, row in df.iterrows():
@@ -215,32 +225,252 @@ def parse_delivery(path):
             "sales":    norm_sales(r[5]),
             "product":  str(r[6]).strip()  if not pd.isna(r[6])  else "",
             "unit":     str(r[9]).strip()  if not pd.isna(r[9])  else "",
-            "qty_bs":   float(r[10])       if not pd.isna(r[10]) else 0.0,
+            "qty_bs":   fval(r[10]),
             "ket":      ket,
         })
     return rows
 
 
-# ── Find upload files ─────────────────────────────────────────────────────────
+# ── Targets parser ─────────────────────────────────────────────────────────────
+def parse_targets(path, date_str):
+    """Parse targets + achievement from DATA_PENCAPAIAN Excel."""
+    dt = datetime.strptime(date_str, "%Y-%m-%d")
+    sheet_name = MONTH_SHEET[dt.month]
+    month_idx  = dt.month  # 1-based
+
+    print(f"  Reading sheet '{sheet_name}'...")
+    df = pd.read_excel(path, sheet_name=sheet_name, header=None)
+    rows = list(df.values)
+
+    def cell(r, c):
+        v = r[c] if c < len(r) else None
+        return "" if v is None or str(v).strip().lower() == "nan" else str(v).strip()
+
+    def find_row(keyword, col=1, start=0):
+        for i in range(start, len(rows)):
+            if keyword.lower() in cell(rows[i], col).lower():
+                return i
+        return None
+
+    # ── MKS input table (col 1=name, 2=food, 3=bev, 4=balian) ───────────────
+    input_start  = find_row("Nama_Kry",         col=1)
+    input_end    = find_row("INPUT: DATA NESTLE", col=1)
+    mks_input = {}
+    if input_start is not None and input_end is not None:
+        for i in range(input_start + 1, input_end):
+            name = cell(rows[i], 1)
+            if not name:
+                continue
+            mks_input[name] = {
+                "food":   fval(rows[i][2]),
+                "bev":    fval(rows[i][3]),
+                "balian": fval(rows[i][4]) if len(rows[i]) > 4 else 0.0,
+            }
+
+    # ── Nestlé input table ────────────────────────────────────────────────────
+    nestle_start = find_row("INPUT: DATA NESTLE", col=1)
+    nestle_raw   = {}
+    if nestle_start is not None:
+        for i in range(nestle_start + 2, nestle_start + 12):
+            if i >= len(rows): break
+            name = cell(rows[i], 1)
+            val  = fval(rows[i][2])
+            nu   = name.upper().replace(" ", "").replace("-", "")
+            if not name:
+                nestle_raw["_blank"] = val
+            elif "NP1" in nu: nestle_raw["NP1"] = val
+            elif "NP2" in nu: nestle_raw["NP2"] = val
+            elif "NP3" in nu: nestle_raw["NP3"] = val
+            elif "NP4" in nu: nestle_raw["NP4"] = val
+            elif "NP5" in nu: nestle_raw["NP5"] = val
+
+    # ── Nestlé calculations ───────────────────────────────────────────────────
+    ka_val    = mks_input.get("KA", {}).get("food", 0.0)
+    blank_val = nestle_raw.get("_blank", 0.0)
+    np5_calc  = blank_val + ka_val + nestle_raw.get("NP5", 0.0)
+    np3_final = nestle_raw.get("NP3", 0.0) + nestle_raw.get("NP4", 0.0) + np5_calc
+    np1_ach   = nestle_raw.get("NP1", 0.0)
+    np2_ach   = nestle_raw.get("NP2", 0.0)
+
+    # ── Global totals (FOOD / BEVERAGE / NESTLE rows) ─────────────────────────
+    global_start = find_row("KATAGORI", col=1)
+    food_total_t = food_total_a = 0
+    bev_total_t  = bev_total_a  = 0
+    nes_total_t  = nes_total_a  = 0
+    if global_start is not None:
+        for i in range(global_start + 1, global_start + 6):
+            if i >= len(rows): break
+            cat = cell(rows[i], 1).upper()
+            if cat == "FOOD":
+                food_total_t = rint(rows[i][3]); food_total_a = rint(rows[i][4])
+            elif cat == "BEVERAGE":
+                bev_total_t  = rint(rows[i][3]); bev_total_a  = rint(rows[i][4])
+            elif cat == "NESTLE":
+                nes_total_t  = rint(rows[i][3]); nes_total_a  = rint(rows[i][4])
+
+    # ── Area table (Food & Beverages computed section) ────────────────────────
+    AREA_NAME_MAP = {
+        "UBUD":                          "UBUD",
+        "DENPASAR - SANUR":              "DENPASAR - SANUR",
+        "KUTA SELATAN - ULUWATU":        "KUTA SEL - ULUWATU",
+        "KUTA - INDUSTRI":               "KUTA - INDUSTRI",
+        "KUTA - HOTEL":                  "KUTA - HOTEL",
+        "KUTA SELATAN - NUSA DUA":       "KUTA SEL - NUSA DUA",
+        "SEMINYAK":                      "SEMINYAK",
+        "KUTA - LEGIAN":                 "KUTA - LEGIAN",
+        "CANGGU 1":                      "CANGGU 1",
+        "CANGGU 2":                      "CANGGU 2",
+        "GT + FOODY":                    "GT + FOODY",
+        "MODERN TRADE + GENERAL TRADE":  "MODERN + GENERAL TRADE",
+        "MODERN TRADE + GENERAL":        "MODERN + GENERAL TRADE",
+    }
+    SALES_NORM_MAP = {
+        "PICROM": "Picrom", "I MADE LUIH": "I Made Luih",
+        "NN MADE LUIH": "I Made Luih", "JUNI": "Juni",
+        "LANI": "Lani", "MONICA": "Monica", "SUJANA": "Sujana",
+        "NN SUJANA": "Sujana", "EKA": "Eka", "TAUFIK": "Taufik",
+        "DEWI KRISTIANI": "Dewi Kristiani", "WIRA": "Wira",
+        "SRIASIH": "Sriasih",
+    }
+
+    # Find the computed area table — exact match on "FOOD & BEVERAGES" (not the input label)
+    fb_start = None
+    for i, r in enumerate(rows):
+        c = cell(r, 1)
+        if c.upper() == "FOOD & BEVERAGES":
+            fb_start = i
+            break
+    area_targets = []
+    if fb_start is not None:
+        i = fb_start + 2  # skip 2 header rows
+        while i < len(rows):
+            r     = rows[i]
+            area_raw  = cell(r, 1)
+            sales_raw = cell(r, 2)
+            area_up   = area_raw.upper()
+
+            if not area_raw:
+                i += 1; continue
+            if area_up in ("GRAND TOTAL", "NESTLE", "BALIAN", "CHANNEL / AREA", "AREA"):
+                break
+
+            # col layout: 3=food_t, 4=bev_t, 6=food_ach, 7=bev_ach
+            food_t   = rint(r[3])
+            bev_t    = rint(r[4])
+            food_ach = rint(r[6])
+            bev_ach  = rint(r[7])
+            sales_n  = SALES_NORM_MAP.get(sales_raw.upper(), sales_raw)
+
+            if "NAUGHTY NURIS" in area_up:
+                if "MADE LUIH" in sales_raw.upper() or "NN MADE" in sales_raw.upper():
+                    an = "NAUGHTY NURIS (SANUR)";    sales_n = "I Made Luih"
+                else:
+                    an = "NAUGHTY NURIS (SEMINYAK)"; sales_n = "Sujana"
+                pct = round(food_ach / food_t * 100) if food_t > 0 else 0
+                area_targets.append({
+                    "area": an, "sales": sales_n,
+                    "food_target": food_t, "bev_target": 0,
+                    "food_ach": food_ach, "bev_ach": 0, "pct": pct
+                })
+                i += 1; continue
+
+            matched = None
+            for k, v in AREA_NAME_MAP.items():
+                if k in area_up:
+                    matched = v; break
+            if not matched:
+                i += 1; continue
+
+            total_t = food_t + bev_t
+            total_a = food_ach + bev_ach
+            pct = round(total_a / total_t * 100) if total_t > 0 else 0
+            area_targets.append({
+                "area": matched, "sales": sales_n,
+                "food_target": food_t, "bev_target": bev_t,
+                "food_ach": food_ach, "bev_ach": bev_ach, "pct": pct
+            })
+            i += 1
+
+    # ── Balian table ──────────────────────────────────────────────────────────
+    balian_start = find_row("BALIAN", col=1)
+    balian_by_area = {}
+    if balian_start is not None:
+        for i in range(balian_start + 2, balian_start + 20):
+            if i >= len(rows): break
+            r = rows[i]
+            area_raw  = cell(r, 1)
+            sales_raw = cell(r, 2)
+            if not area_raw or area_raw.upper() in ("GRAND TOTAL", "AREA", ""):
+                continue
+            ach = fval(r[3])
+            matched = None
+            for k, v in AREA_NAME_MAP.items():
+                if k in area_raw.upper():
+                    matched = v; break
+            if matched:
+                sales_n = SALES_NORM_MAP.get(sales_raw.upper(), sales_raw)
+                balian_by_area[matched] = {"sales": sales_n, "ach": rint(ach)}
+
+    # ── Nestlé targets from TARGETS sheet ─────────────────────────────────────
+    tdf  = pd.read_excel(path, sheet_name="TARGETS", header=None)
+    trows = list(tdf.values)
+
+    def get_nestle_target(keyword):
+        col = 2 + (month_idx - 1)  # each month = 1 col in Nestlé section
+        for r in trows:
+            c1 = str(r[1]).strip() if r[1] is not None else ""
+            if keyword.lower() in c1.lower():
+                return fval(r[col]) if col < len(r) else 0.0
+        return 0.0
+
+    np1_t = get_nestle_target("NP - 1")
+    np2_t = get_nestle_target("NP - 2")
+    np3_t = get_nestle_target("NP - 3")
+
+    # ── Assemble ──────────────────────────────────────────────────────────────
+    np1_pct = round(np1_ach   / np1_t * 100) if np1_t > 0 else 0
+    np2_pct = round(np2_ach   / np2_t * 100) if np2_t > 0 else 0
+    np3_pct = round(np3_final / np3_t * 100) if np3_t > 0 else 0
+
+    return {
+        "targets": {
+            "FOOD":     {"target": food_total_t, "achievement": food_total_a},
+            "BEVERAGE": {"target": bev_total_t,  "achievement": bev_total_a},
+            "NESTLE":   {"target": nes_total_t,  "achievement": nes_total_a},
+        },
+        "nestle_areas": [
+            {"area": "NP-1", "sales": "Ridwan",  "target": rint(np1_t),
+             "achievement": rint(np1_ach),   "pct": np1_pct},
+            {"area": "NP-2", "sales": "Redi",    "target": rint(np2_t),
+             "achievement": rint(np2_ach),   "pct": np2_pct},
+            {"area": "NP-3", "sales": "Gek Mas", "target": rint(np3_t),
+             "achievement": rint(np3_final), "pct": np3_pct},
+        ],
+        "area_targets": area_targets,
+        "balian": balian_by_area,
+    }
+
+
+# ── Find upload files ──────────────────────────────────────────────────────────
 def find_uploads():
-    """Find the 5 expected Excel files in uploads/ and extract date."""
     files = list(UPLOADS_DIR.glob("*.xlsx"))
     if not files:
         print(f"ERROR: No .xlsx files found in {UPLOADS_DIR}")
         sys.exit(1)
 
-    so_file = stk_mku = stk_mks = del_mku = del_mks = None
+    so_file = stk_mku = stk_mks = del_mku = del_mks = pencapaian = None
     date_str = None
 
     for f in files:
         name = f.name
-        if re.match(r"Report_SO_MKU_MKS_", name, re.IGNORECASE):
+        if re.match(r"DATA_PENCAPAIAN", name, re.IGNORECASE):
+            pencapaian = f
+        elif re.match(r"Report_SO_MKU_MKS_", name, re.IGNORECASE):
             so_file = f
             m = re.search(r"(\d{4}-\d{2}-\d{2})", name)
             if m:
                 date_str = m.group(1)
             else:
-                # Try DDMMYYYY or similar fallback
                 m2 = re.search(r"(\d{2})(\d{2})(\d{4})", name)
                 if m2:
                     date_str = f"{m2.group(3)}-{m2.group(2)}-{m2.group(1)}"
@@ -254,36 +484,36 @@ def find_uploads():
             del_mks = f
 
     missing = []
-    if not so_file:  missing.append("Report_SO_MKU_MKS_[date].xlsx")
-    if not stk_mku:  missing.append("Stok_MKU_[date].xlsx")
-    if not stk_mks:  missing.append("Stok_MKS_[date].xlsx")
-    if not del_mku:  missing.append("MKU_[date].xlsx")
-    if not del_mks:  missing.append("MKS_[date].xlsx")
+    if not so_file:    missing.append("Report_SO_MKU_MKS_[date].xlsx")
+    if not stk_mku:    missing.append("Stok_MKU_[date].xlsx")
+    if not stk_mks:    missing.append("Stok_MKS_[date].xlsx")
+    if not del_mku:    missing.append("MKU_[date].xlsx")
+    if not del_mks:    missing.append("MKS_[date].xlsx")
+    if not pencapaian: missing.append("DATA_PENCAPAIAN_[year].xlsx")
     if missing:
-        print(f"ERROR: Missing upload files:\n  " + "\n  ".join(missing))
+        print("ERROR: Missing upload files:\n  " + "\n  ".join(missing))
         sys.exit(1)
 
     if not date_str:
-        # Fallback: use today's date
         date_str = datetime.today().strftime("%Y-%m-%d")
         print(f"WARNING: Could not extract date from SO filename. Using today: {date_str}")
 
     print(f"Found files for date: {date_str}")
-    print(f"  SO:       {so_file.name}")
-    print(f"  Stok MKU: {stk_mku.name}")
-    print(f"  Stok MKS: {stk_mks.name}")
-    print(f"  Del MKU:  {del_mku.name}")
-    print(f"  Del MKS:  {del_mks.name}")
-    return date_str, so_file, stk_mku, stk_mks, del_mku, del_mks
+    print(f"  SO:          {so_file.name}")
+    print(f"  Stok MKU:    {stk_mku.name}")
+    print(f"  Stok MKS:    {stk_mks.name}")
+    print(f"  Del MKU:     {del_mku.name}")
+    print(f"  Del MKS:     {del_mks.name}")
+    print(f"  Pencapaian:  {pencapaian.name}")
+    return date_str, so_file, stk_mku, stk_mks, del_mku, del_mks, pencapaian
 
 
-# ── Load existing data.js ─────────────────────────────────────────────────────
+# ── Load existing data.js ──────────────────────────────────────────────────────
 def load_existing():
     if not DATA_JS.exists():
         print("WARNING: docs/data.js not found — starting fresh.")
         return None
     content = DATA_JS.read_text(encoding="utf-8").strip()
-    # Strip JS wrapper: "const RAW = {...};"
     if content.startswith("const RAW ="):
         content = content[len("const RAW ="):].strip()
     if content.endswith(";"):
@@ -295,67 +525,14 @@ def load_existing():
         sys.exit(1)
 
 
-# ── Targets entry (hardcoded — update from screenshot each day) ───────────────
-def build_targets_entry(date_str, raw):
-    """
-    Returns a targets entry for the new date.
-
-    IMPORTANT: This function returns None, signalling the pipeline to
-    COPY the previous day's targets_by_date entry as a placeholder.
-    You must update targets_by_date[date_str] manually (or add screenshot
-    parsing here) to reflect the actual daily achievement.
-
-    To add real target data: replace this function's body with the actual
-    values from your screenshot, or implement OCR-based parsing.
-    """
-    # ── Option A: Copy previous latest targets (placeholder) ──────────────────
-    prev = raw.get("latest")
-    if prev and prev in raw.get("targets_by_date", {}):
-        prev_targets = raw["targets_by_date"][prev]
-        print(f"  NOTE: targets_by_date['{date_str}'] copied from {prev}.")
-        print(f"        Update manually with today's actual achievement values.")
-        return prev_targets
-    # ── Option B: Return empty scaffold ───────────────────────────────────────
-    return {
-        "targets": {
-            "FOOD":     {"target": 6619279333, "achievement": 0},
-            "BEVERAGE": {"target": 1269766212, "achievement": 0},
-            "NESTLE":   {"target": 1791489362, "achievement": 0},
-        },
-        "nestle_areas": [
-            {"area": "NP-1", "sales": "Ridwan",  "target": 279391895,  "achievement": 0, "pct": 0},
-            {"area": "NP-2", "sales": "Redi",    "target": 419611959,  "achievement": 0, "pct": 0},
-            {"area": "NP-3", "sales": "Gek Mas", "target": 1092485507, "achievement": 0, "pct": 0},
-        ],
-        "area_targets": [
-            {"area": "UBUD",                     "sales": "Picrom",         "food_target": 396683478,  "bev_target": 49588709,  "food_ach": 0, "bev_ach": 0, "pct": 0},
-            {"area": "DENPASAR - SANUR",         "sales": "I Made Luih",   "food_target": 535182371,  "bev_target": 172865092, "food_ach": 0, "bev_ach": 0, "pct": 0},
-            {"area": "NAUGHTY NURIS (SANUR)",    "sales": "I Made Luih",   "food_target": 241473268,  "bev_target": 0,         "food_ach": 0, "bev_ach": 0, "pct": 0},
-            {"area": "KUTA SEL - ULUWATU",       "sales": "Juni",          "food_target": 590712472,  "bev_target": 28200135,  "food_ach": 0, "bev_ach": 0, "pct": 0},
-            {"area": "KUTA - INDUSTRI",          "sales": "Lani",          "food_target": 395063284,  "bev_target": 73528469,  "food_ach": 0, "bev_ach": 0, "pct": 0},
-            {"area": "KUTA - HOTEL",             "sales": "Lani",          "food_target": 463918832,  "bev_target": 71898548,  "food_ach": 0, "bev_ach": 0, "pct": 0},
-            {"area": "KUTA SEL - NUSA DUA",      "sales": "Monica",        "food_target": 941758345,  "bev_target": 73246884,  "food_ach": 0, "bev_ach": 0, "pct": 0},
-            {"area": "SEMINYAK",                 "sales": "Sujana",        "food_target": 485287059,  "bev_target": 45099712,  "food_ach": 0, "bev_ach": 0, "pct": 0},
-            {"area": "NAUGHTY NURIS (SEMINYAK)", "sales": "Sujana",        "food_target": 404133664,  "bev_target": 0,         "food_ach": 0, "bev_ach": 0, "pct": 0},
-            {"area": "KUTA - LEGIAN",            "sales": "Eka",           "food_target": 384017309,  "bev_target": 119782698, "food_ach": 0, "bev_ach": 0, "pct": 0},
-            {"area": "CANGGU 1",                 "sales": "Taufik",        "food_target": 611629596,  "bev_target": 40059909,  "food_ach": 0, "bev_ach": 0, "pct": 0},
-            {"area": "CANGGU 2",                 "sales": "Dewi Kristiani","food_target": 366543023,  "bev_target": 45082463,  "food_ach": 0, "bev_ach": 0, "pct": 0},
-            {"area": "GT + FOODY",               "sales": "Wira",          "food_target": 563350942,  "bev_target": 311125253, "food_ach": 0, "bev_ach": 0, "pct": 0},
-            {"area": "MODERN + GENERAL TRADE",   "sales": "Sriasih",       "food_target": 239525689,  "bev_target": 239288340, "food_ach": 0, "bev_ach": 0, "pct": 0},
-        ],
-    }
-
-
-# ── Main ──────────────────────────────────────────────────────────────────────
+# ── Main ───────────────────────────────────────────────────────────────────────
 def main():
     print("=" * 60)
     print("MKU & MKS Dashboard Pipeline")
     print("=" * 60)
 
-    # 1. Find upload files
-    date_str, so_file, stk_mku, stk_mks, del_mku, del_mks = find_uploads()
+    date_str, so_file, stk_mku, stk_mks, del_mku, del_mks, pencapaian = find_uploads()
 
-    # 2. Load existing data.js
     raw = load_existing()
     if raw is None:
         raw = {
@@ -369,54 +546,53 @@ def main():
             "targets_by_date":  {},
         }
 
-    if date_str in raw["dates"] and date_str == raw.get("latest"):
-        print(f"\nWARNING: {date_str} is already the latest date in data.js.")
-        print("Re-processing will overwrite today's data. Continuing...")
-
-    # 3. Compress previous latest day (if exists and different from new date)
+    # Compress previous latest day
     prev = raw.get("latest")
     if prev and prev != date_str:
         print(f"\nCompressing previous latest day: {prev}")
         raw["so_summary"][prev] = compress_so(raw.get("so", []))
-
         prev_stk = raw["stock_by_date"].get(prev, {})
-        mku_f = prev_stk.get("MKU_full", prev_stk.get("MKU", []))
-        mks_f = prev_stk.get("MKS_full", prev_stk.get("MKS", []))
-        raw["stock_by_date"][prev] = compress_stock(mku_f, mks_f)
-
+        raw["stock_by_date"][prev] = compress_stock(
+            prev_stk.get("MKU_full", prev_stk.get("MKU", [])),
+            prev_stk.get("MKS_full", prev_stk.get("MKS", []))
+        )
         prev_del = raw["delivery_by_date"].get(prev, {})
-        mku_d = prev_del.get("mku_full", [])
-        mks_d = prev_del.get("mks_full", [])
-        raw["delivery_by_date"][prev] = compress_del(mku_d, mks_d)
+        raw["delivery_by_date"][prev] = compress_del(
+            prev_del.get("mku_full", []),
+            prev_del.get("mks_full", [])
+        )
 
-    # 4. Parse new files
+    # Parse new files
     print(f"\nParsing files for {date_str}...")
-
     print("  Parsing SO...")
     so_rows = parse_so(so_file, date_str)
-    print(f"    → {len(so_rows)} SO rows")
+    print(f"    → {len(so_rows)} rows")
 
     print("  Parsing stock MKU...")
     mku_stock = parse_stock(stk_mku)
-    print(f"    → {len(mku_stock)} MKU stock items")
+    print(f"    → {len(mku_stock)} items")
 
     print("  Parsing stock MKS...")
     mks_stock = parse_stock(stk_mks)
-    print(f"    → {len(mks_stock)} MKS stock items")
+    print(f"    → {len(mks_stock)} items")
 
     print("  Parsing delivery MKU...")
     del_mku_rows = parse_delivery(del_mku)
-    print(f"    → {len(del_mku_rows)} MKU delivery rows")
+    print(f"    → {len(del_mku_rows)} rows")
 
     print("  Parsing delivery MKS...")
     del_mks_rows = parse_delivery(del_mks)
-    print(f"    → {len(del_mks_rows)} MKS delivery rows")
+    print(f"    → {len(del_mks_rows)} rows")
 
-    # 5. Build targets entry
-    print(f"\nBuilding targets entry for {date_str}...")
-    targets_entry = build_targets_entry(date_str, raw)
+    print("  Parsing targets (DATA_PENCAPAIAN)...")
+    targets_entry = parse_targets(pencapaian, date_str)
+    t = targets_entry["targets"]
+    print(f"    → FOOD:     {t['FOOD']['achievement']:>15,.0f} / {t['FOOD']['target']:>15,.0f}")
+    print(f"    → BEVERAGE: {t['BEVERAGE']['achievement']:>15,.0f} / {t['BEVERAGE']['target']:>15,.0f}")
+    print(f"    → NESTLE:   {t['NESTLE']['achievement']:>15,.0f} / {t['NESTLE']['target']:>15,.0f}")
+    print(f"    → Balian areas: {len(targets_entry['balian'])}")
 
-    # 6. Add new latest day
+    # Update RAW
     print(f"\nUpdating RAW for {date_str}...")
     raw["latest"] = date_str
     raw["so"]     = so_rows
@@ -437,15 +613,14 @@ def main():
     if date_str not in raw["dates"]:
         raw["dates"] = sorted(raw["dates"] + [date_str])
 
-    # 7. Write data.js
+    # Write data.js
     print(f"\nWriting docs/data.js...")
     DATA_JS.parent.mkdir(parents=True, exist_ok=True)
     output = "const RAW = " + json.dumps(raw, ensure_ascii=False, separators=(",", ":")) + ";"
     DATA_JS.write_text(output, encoding="utf-8")
     size_kb = DATA_JS.stat().st_size / 1024
-    print(f"  ✓ docs/data.js written ({size_kb:.1f} KB)")
-    print(f"  Dates in dataset: {raw['dates']}")
-    print("\nPipeline complete.")
+    print(f"  ✓ Written ({size_kb:.1f} KB) — dates: {raw['dates']}")
+    print("\nPipeline complete. ✓")
 
 
 if __name__ == "__main__":
