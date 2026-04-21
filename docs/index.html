@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MKU & MKS Dashboard — April 2026</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
@@ -21,7 +20,7 @@
     <button class="co-btn" id="btn-mks" onclick="setCompany('MKS')" style="color:var(--mks)">MKS</button>
   </div>
   <div class="vdiv"></div>
-  <button class="topbtn" onclick="document.getElementById('fmt-modal').classList.add('open')">Guide</button>
+
   <div class="dl-wrap" id="dl-wrap">
     <button class="dl-btn" onclick="toggleDL()">⬇ Download <span class="dl-chev">▼</span></button>
     <div class="dl-menu">
@@ -63,21 +62,7 @@
   </div>
 </div>
 
-<div class="modal-ov" id="fmt-modal" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal">
-    <button class="mc" onclick="document.getElementById('fmt-modal').classList.remove('open')">✕</button>
-    <h3>📋 Daily File Guide — April 2026</h3>
-    <p>Send <strong>5 files</strong> each morning:</p>
-    <p>1. <strong>Report SO</strong> — sheet <code>Sheet</code></p>
-    <p>2. <strong>Stok MKU</strong> — sheet <code>all product</code></p>
-    <p>3. <strong>Stok MKS</strong> — sheet <code>all product</code></p>
-    <p>4. 📸 WhatsApp screenshot <strong>Global Target</strong></p>
-    <p>5. 📸 WhatsApp screenshot <strong>Area Breakdown</strong></p>
-    <p>6. 📸 WhatsApp screenshot <strong>Nestlé</strong></p>
-    <p>End of day: <strong>Delivery MKU</strong> + <strong>Delivery MKS</strong></p>
-    <p style="background:var(--mks-l);color:var(--mks);padding:10px;border-radius:8px;margin-top:8px;font-weight:600">📅 Files named: Report_SO_MKU_MKS_[date].xlsx</p>
-  </div>
-</div>
+
 
 <div class="page">
   <div class="kpi-strip n6" id="kpi-strip"></div>
@@ -103,10 +88,6 @@
     <div class="card">
       <div class="card-hdr"><div class="card-title"><div class="ci mks">📋</div>Area Performance Detail</div></div>
       <div class="tbl-wrap"><table class="tbl" id="tbl-area"></table></div>
-    </div>
-    <div class="card">
-      <div class="card-hdr"><div class="card-title"><div class="ci org">🏝️</div>Balian Achievement</div><span class="card-sub">Commission only — not included in target</span></div>
-      <div class="tbl-wrap"><table class="tbl" id="tbl-balian"></table></div>
     </div>
   </div>
 

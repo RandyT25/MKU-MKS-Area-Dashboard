@@ -268,34 +268,10 @@ function renderTarget(){
       <td><span class="badge ${cls}">${p}%</span></td></tr>`;}).join('')}</tbody>
     <tfoot><tr>
       <td colspan="2"><strong>GRAND TOTAL</strong></td>
-      <td class="num"><strong>${fmtRp((nestleA||[]).reduce((s,n)=>s+n.target,0))}</strong></td>
+      <td class="num">${fmtRp((nestleA||[]).reduce((s,n)=>s+n.target,0))}</td>
       <td class="num"><strong>${fmtRp((nestleA||[]).reduce((s,n)=>s+n.achievement,0))}</strong></td>
       <td><span class="badge ${badgeCls(pct((nestleA||[]).reduce((s,n)=>s+n.achievement,0),(nestleA||[]).reduce((s,n)=>s+n.target,0)))}">${pct((nestleA||[]).reduce((s,n)=>s+n.achievement,0),(nestleA||[]).reduce((s,n)=>s+n.target,0))}%</span></td>
     </tr></tfoot>`;
-
-  // ── Balian table ──────────────────────────────────────────────
-  const tgt=getTgt();
-  const balian=tgt.balian||{};
-  const balianRows=Object.entries(balian).filter(([,v])=>v.ach>0);
-  const balianTotal=balianRows.reduce((s,[,v])=>s+v.ach,0);
-  const balianEl=document.getElementById('tbl-balian');
-  if(balianEl){
-    if(balianRows.length===0){
-      balianEl.innerHTML='<tbody><tr><td colspan="3" style="text-align:center;color:var(--txt3);padding:20px">No Balian data for this date</td></tr></tbody>';
-    } else {
-      balianEl.innerHTML=`
-        <thead><tr><th>Area</th><th>Sales</th><th class="num">Achievement</th></tr></thead>
-        <tbody>${balianRows.map(([area,v])=>`<tr>
-          <td style="font-weight:600">${area}</td>
-          <td style="color:var(--txt2);font-size:.68rem">${v.sales}</td>
-          <td class="num" style="font-weight:700;color:var(--org)">${fmtRp(v.ach)}</td>
-        </tr>`).join('')}</tbody>
-        <tfoot><tr>
-          <td colspan="2"><strong>GRAND TOTAL</strong></td>
-          <td class="num"><strong style="color:var(--org)">${fmtRp(balianTotal)}</strong></td>
-        </tr></tfoot>`;
-    }
-  }
 }
 
 function renderSO(){
@@ -303,8 +279,9 @@ function renderSO(){
   const isFullDay=isFull(activeDate);
   document.getElementById('so-co-lbl').textContent=company==='ALL'?'All':company;
 
+  const divMapSO={};RAW.so.forEach(r=>{divMapSO[r.sales]=r.division;});
   const rS=Object.entries(agg.rep_rev)
-    .filter(([n])=>company==='ALL'||(company==='MKU'&&RAW.so.find(r=>r.sales===n&&r.division==='MKU Bali'))||(company==='MKS'&&RAW.so.find(r=>r.sales===n&&r.division==='MKS Bali'))||true)
+    .filter(([n])=>{if(company==='ALL')return true;const div=divMapSO[n];if(div)return div===(company==='MKU'?'MKU Bali':'MKS Bali');return true;})
     .sort((a,b)=>b[1]-a[1]).slice(0,12);
   if(charts.rep)charts.rep.destroy();
   charts.rep=new Chart(document.getElementById('ch-rep'),{type:'bar',data:{labels:rS.map(([n])=>n),datasets:[{data:rS.map(([,v])=>v),backgroundColor:rS.map((_,i)=>i===0?'#2563eb':i<3?'#93b4f8':'#c7d8fc'),borderRadius:6}]},options:{indexAxis:'y',...COPTS,plugins:{legend:{display:false}},scales:{x:{...COPTS.scales.x,ticks:{...COPTS.scales.x.ticks,callback:v=>v>=1e6?(v/1e6).toFixed(0)+'M':v}},y:{...COPTS.scales.y,grid:{display:false}}}}});
@@ -421,7 +398,7 @@ function renderStock(f){
   let filtered=stk;
   if(stockFilter!=='all')filtered=stk.filter(s=>s.st===stockFilter);
   filtered.sort((a,b)=>({'out':0,'critical':1,'low':2,'ok':3}[a.st]-{'out':0,'critical':1,'low':2,'ok':3}[b.st]));
-  document.getElementById('sg').innerHTML=filtered.map(s=>`<div class="si ${s.st}"><div class="si-code">${s.c}${company==='ALL'?' · <b>'+s.co+'</b>':''}</div><div class="si-name">${s.n}</div><div class="si-bottom"><div class="si-qty ${s.st}">${s.s<=0?'0':fmtQ(s.s)}<span style="font-size:.6rem;font-weight:400;margin-left:2px">${s.u}</span></div><div class="si-days ${s.st}">${s.s<=0?'OUT':s.bf>0?fmtQ(s.bf)+'d':'—'}</div></div></div>`).join('')||'<p style="color:var(--txt3);padding:20px;font-size:.75rem">No items.</p>';
+  document.getElementById('sg').innerHTML=filtered.map(s=>`<div class="si ${s.st}"><div class="si-code">${s.code||s.c||''}${company==='ALL'?' · <b>'+s.co+'</b>':''}</div><div class="si-name">${s.name||s.n||''}</div><div class="si-bottom"><div class="si-qty ${s.st}">${(s.saldo||s.s||0)<=0?'0':fmtQ(s.saldo||s.s||0)}<span style="font-size:.6rem;font-weight:400;margin-left:2px">${s.unit||s.u||''}</span></div><div class="si-days ${s.st}">${(s.saldo||s.s||0)<=0?'OUT':(s.buf||s.bf||0)>0?fmtQ(s.buf||s.bf||0)+'d':'—'}</div></div></div>`).join('')||'<p style="color:var(--txt3);padding:20px;font-size:.75rem">No items.</p>';
 }
 
 function renderAlerts(){
@@ -451,9 +428,9 @@ function renderAlerts(){
   });
 
   const secs=[
-    {id:'a-out',ic:'🔴',tt:'Out of Stock — Active SKUs at Zero',cnt:outI.length,cc:outI.length?'red':'grn',items:outI.length?outI.map(s=>`<div class="al out"><span>🔴</span><div class="al-body"><strong>${s.n}</strong><br><span style="font-size:.68rem;color:var(--txt2)">${s.c} · Avg ${(s.a||0).toFixed(0)} ${s.u}/mo</span></div><span class="al-co ${s.co.toLowerCase()}">${s.co}</span></div>`):['<p style="color:var(--txt3);font-size:.74rem;padding:4px 0">✅ No out-of-stock items</p>']},
-    {id:'a-crit',ic:'🚨',tt:'Critical — Less than 3 Days Left',cnt:critI.length,cc:critI.length?'red':'grn',items:critI.length?critI.map(s=>`<div class="al out"><span>🚨</span><div class="al-body"><strong>${s.n}</strong><br><span style="font-size:.68rem;color:var(--mku);font-weight:600">${fmtQ(s.s)} ${s.u} · ${s.bf>0?s.bf.toFixed(1)+' days':'<1 day'}</span></div><span class="al-co ${s.co.toLowerCase()}">${s.co}</span></div>`):['<p style="color:var(--txt3);font-size:.74rem;padding:4px 0">✅ No critical items</p>']},
-    {id:'a-low',ic:'⚠️',tt:'Low Stock — 3 to 7 Days Left',cnt:lowI.length,cc:lowI.length?'org':'grn',items:lowI.length?lowI.map(s=>`<div class="al warn"><span>⚠️</span><div class="al-body"><strong>${s.n}</strong><br><span style="font-size:.68rem;color:var(--org);font-weight:600">${fmtQ(s.s)} ${s.u} · ${s.bf.toFixed(1)} days</span></div><span class="al-co ${s.co.toLowerCase()}">${s.co}</span></div>`):['<p style="color:var(--txt3);font-size:.74rem;padding:4px 0">✅ No low-stock items</p>']},
+    {id:'a-out',ic:'🔴',tt:'Out of Stock — Active SKUs at Zero',cnt:outI.length,cc:outI.length?'red':'grn',items:outI.length?outI.map(s=>`<div class="al out"><span>🔴</span><div class="al-body"><strong>${s.name||s.n||''}</strong><br><span style="font-size:.68rem;color:var(--txt2)">${s.code||s.c||''} · Avg ${((s.avg3m||s.a)||0).toFixed(0)} ${s.unit||s.u||''}/mo</span></div><span class="al-co ${s.co.toLowerCase()}">${s.co}</span></div>`):['<p style="color:var(--txt3);font-size:.74rem;padding:4px 0">✅ No out-of-stock items</p>']},
+    {id:'a-crit',ic:'🚨',tt:'Critical — Less than 3 Days Left',cnt:critI.length,cc:critI.length?'red':'grn',items:critI.length?critI.map(s=>`<div class="al out"><span>🚨</span><div class="al-body"><strong>${s.name||s.n||''}</strong><br><span style="font-size:.68rem;color:var(--mku);font-weight:600">${fmtQ(s.saldo||s.s||0)} ${s.unit||s.u||''} · ${(s.buf||s.bf||0)>0?(s.buf||s.bf||0).toFixed(1)+' days':'<1 day'}</span></div><span class="al-co ${s.co.toLowerCase()}">${s.co}</span></div>`):['<p style="color:var(--txt3);font-size:.74rem;padding:4px 0">✅ No critical items</p>']},
+    {id:'a-low',ic:'⚠️',tt:'Low Stock — 3 to 7 Days Left',cnt:lowI.length,cc:lowI.length?'org':'grn',items:lowI.length?lowI.map(s=>`<div class="al warn"><span>⚠️</span><div class="al-body"><strong>${s.name||s.n||''}</strong><br><span style="font-size:.68rem;color:var(--org);font-weight:600">${fmtQ(s.saldo||s.s||0)} ${s.unit||s.u||''} · ${(s.buf||s.bf||0).toFixed(1)} days</span></div><span class="al-co ${s.co.toLowerCase()}">${s.co}</span></div>`):['<p style="color:var(--txt3);font-size:.74rem;padding:4px 0">✅ No low-stock items</p>']},
     {id:'a-unf',ic:'🚫',tt:'Unfulfilled Deliveries — Not Sent',cnt:unfI.length,cc:unfI.length?'red':'grn',items:unfI.length?unfI.map(r=>`<div class="al out"><span>🚫</span><div class="al-body"><strong>${r.customer||'—'}</strong><br><span style="font-size:.68rem;color:var(--txt2)">${r.product||'—'} · <span style="color:var(--mku);font-weight:700">NOT DELIVERED</span></span></div><span class="al-co ${(r.co||'mks').toLowerCase()}">${r.co||'—'}</span></div>`):['<p style="color:var(--txt3);font-size:.74rem;padding:4px 0">✅ All orders sent</p>']},
   ];
   document.getElementById('alerts-accordions').innerHTML=secs.map(s=>`<div class="accord" id="${s.id}"><div class="accord-hdr" onclick="tog('${s.id}')"><div class="accord-icon">${s.ic}</div><div class="accord-title">${s.tt}</div><span class="accord-count ${s.cc}">${s.cnt}</span><div class="accord-chev">▼</div></div><div class="accord-body"><div class="accord-inner">${s.items.join('')}</div></div></div>`).join('');
@@ -463,29 +440,190 @@ function tog(id){document.getElementById(id).classList.toggle('open');}
 function toggleDL(){document.getElementById('dl-wrap').classList.toggle('open');}
 document.addEventListener('click',e=>{if(!e.target.closest('.dl-wrap')&&!e.target.closest('.date-dd-wrap')){document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));document.querySelectorAll('.date-dd-wrap').forEach(w=>w.classList.remove('open'));}});
 
-function dlHTML(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([document.documentElement.outerHTML],{type:'text/html'}));a.download='MKU_MKS_Dashboard_Mar2026.html';a.click();document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));}
-function dlCSV(){
-  const agg=getAggSummary();const stk=getStk();
-  const csv=(h,r)=>[h.join(','),...r.map(row=>row.map(v=>String(v).includes(',')?`"${v}"`:v).join(','))].join('\n');
-  const soRows=getSO().length>0?getSO():[];
-  [{n:'SO_Mar2026.csv',c:csv(['Date','No SO','Division','Customer','Sales','Product','Qty','Unit','Revenue'],soRows.map(r=>[r.date,r.no_so,r.division,r.customer,r.sales,r.product,r.so_pcs,r.unit,Math.round(r.revenue)]))},
-   {n:'Stock_Mar2026.csv',c:csv(['Code','Product','Unit','Stock','Avg/mo','Days','Status','Co'],stk.map(s=>[s.c,s.n,s.u,fmtQ(s.s),fmtQ(s.a),s.bf>0?fmtQ(s.bf):'0',s.st,s.co]))}
-  ].forEach((f,i)=>setTimeout(()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([f.c],{type:'text/csv'}));a.download=f.n;a.click();},i*400));
+function dlExcel(){
+  const mon=RAW.month||'April 2026';
+  const wb=XLSX.utils.book_new();
+  const H={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1E3A5F'}},alignment:{horizontal:'center'}};
+  const addSheet=(name,headers,rows)=>{
+    const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+    // Style header row
+    headers.forEach((_,ci)=>{
+      const cell=XLSX.utils.encode_cell({r:0,c:ci});
+      if(!ws[cell])ws[cell]={v:headers[ci],t:'s'};
+      ws[cell].s=H;
+    });
+    // Auto column widths
+    const cols=headers.map((h,ci)=>{
+      const max=Math.max(h.length,...rows.map(r=>String(r[ci]||'').length));
+      return{wch:Math.min(max+2,40)};
+    });
+    ws['!cols']=cols;
+    ws['!freeze']={xSplit:0,ySplit:1};
+    XLSX.utils.book_append_sheet(wb,ws,name);
+  };
+
+  // ── Sheet 1: Sales Orders ────────────────────────────────────
+  const soRows=getSO();
+  addSheet('Sales Orders',
+    ['Date','No SO','Division','Customer','Sales Rep','Product','SO Qty','Unit','FJ Qty','Revenue (Rp)','Type','Status'],
+    soRows.map(r=>[r.date,r.no_so,r.division,r.customer,r.sales,r.product,r.so_pcs,r.unit,r.fj_pcs,Math.round(r.revenue),r.type,r.status])
+  );
+
+  // ── Sheet 2: Delivery ────────────────────────────────────────
+  const delRows=getDel();
+  addSheet('Delivery',
+    ['Date','Division','Area','Customer','Sales Rep','Product','Qty','Unit','Status'],
+    delRows.map(r=>[r.date||RAW.latest,r.co||'',r.area||'',r.customer||'',r.sales||'',r.product||'',r.qty_bs||0,r.unit||'',r.ket||''])
+  );
+
+  // ── Sheet 3: Stock ───────────────────────────────────────────
+  const stk=getStk();
+  addSheet('Stock',
+    ['Division','Code','Product','Unit','Stock Qty','Avg/Month','Buffer Days','Status'],
+    stk.map(s=>[s.co,s.code||s.c||'',s.name||s.n||'',s.unit||s.u||'',s.saldo||s.s||0,Math.round(s.avg3m||s.a||0),(s.buf||s.bf||0)>0?parseFloat((s.buf||s.bf||0).toFixed(1)):0,s.st.toUpperCase()])
+  );
+
+  XLSX.writeFile(wb,'MKU_MKS_Data_'+mon.replace(' ','_')+'.xlsx');
   document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));
 }
+
 function dlPDF(){
-  const agg=getAggSummary();const{targets:T}=getTgt();
-  const tot_t=Object.values(T).reduce((s,t)=>s+t.target,0),tot_a=Object.values(T).reduce((s,t)=>s+t.achievement,0);
+  const mon=RAW.month||'April 2026';
+  const agg=getAggSummary();
+  const{targets:T,area_targets:areas,nestle_areas:nestleA}=getTgt();
+  const tot_t=Object.values(T).reduce((s,t)=>s+t.target,0);
+  const tot_a=Object.values(T).reduce((s,t)=>s+t.achievement,0);
+  const tp=pct(tot_a,tot_t);
+  const lastDate=RAW.latest;
+  const dayNum=parseInt(lastDate.split('-')[2]);
+  const timePct=Math.round(dayNum/30*100);
   const top5=Object.entries(agg.rep_rev).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const dateLabel=activeDate==='ALL'?'All Days':fmtD(activeDate);
-  const htmlStr=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Report Mar 2026</title><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Plus Jakarta Sans',sans-serif;padding:28px;font-size:12px;color:#1a2035;}.hdr{display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #1a2035;}.ht{font-size:1.3rem;font-weight:800;}.mku{color:#dc2626;}.mks{color:#2563eb;}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px;}.kpi{border:1px solid #e4e8ef;border-radius:7px;padding:10px;border-top:3px solid;}.kpi.bl{border-top-color:#2563eb;}.kpi.gr{border-top-color:#059669;}.kpi.pu{border-top-color:#7c3aed;}.kl{font-size:.55rem;font-weight:700;color:#8a93b0;text-transform:uppercase;margin-bottom:4px;}.kv{font-size:1.1rem;font-weight:800;}.kv.bl{color:#2563eb;}.tgts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px;}.tgt{border:1px solid #e4e8ef;border-radius:7px;padding:10px;}.tn{font-size:.65rem;font-weight:700;margin-bottom:5px;}.tp{font-size:1rem;font-weight:800;margin-bottom:3px;}.pb{background:#e4e8ef;border-radius:99px;height:4px;}.pbf{height:4px;border-radius:99px;}.st{font-size:.75rem;font-weight:800;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e4e8ef;}table{width:100%;border-collapse:collapse;font-size:.7rem;}th{background:#f4f6f9;padding:6px 9px;text-align:left;font-size:.58rem;font-weight:700;color:#8a93b0;text-transform:uppercase;}td{padding:7px 9px;border-bottom:1px solid #f0f2f7;}td.r{text-align:right;}.ftr{margin-top:22px;padding-top:10px;border-top:1px solid #e4e8ef;display:flex;justify-content:space-between;font-size:.58rem;color:#8a93b0;}@media print{body{padding:14px;}}</style></head><body>
-  <div class="hdr"><div><div class="ht"><span class="mku">MKU</span> &amp; <span class="mks">MKS</span> — March 2026 Report</div><div style="font-size:.7rem;color:#8a93b0;margin-top:4px">📅 ${dateLabel}</div></div><div style="font-size:.65rem;color:#8a93b0;text-align:right">Area Manager<br>Confidential</div></div>
-  <div class="kpis"><div class="kpi bl"><div class="kl">Revenue</div><div class="kv bl">${fmtRp(agg.rev)}</div></div><div class="kpi gr"><div class="kl">Monthly Target</div><div class="kv" style="color:#059669">${pct(tot_a,tot_t)}%</div></div><div class="kpi pu"><div class="kl">Nestlé Target</div><div class="kv" style="color:#7c3aed">${pct(T.NESTLE?.achievement||0,T.NESTLE?.target||1)}%</div></div><div class="kpi bl"><div class="kl">Orders</div><div class="kv bl">${agg.cnt}</div></div></div>
-  <div class="tgts">${Object.entries(T).map(([c,t])=>{const p=pct(t.achievement,t.target),col=p>=80?'#059669':p>=60?'#d97706':'#dc2626';return`<div class="tgt"><div class="tn">${{FOOD:'🍽️',BEVERAGE:'🥤',NESTLE:'☕'}[c]||''} ${c}</div><div class="tp" style="color:${col}">${p}%</div><div style="font-size:.6rem;color:#8a93b0;margin-bottom:5px">${fmtRp(t.achievement)} / ${fmtRp(t.target)}</div><div class="pb"><div class="pbf" style="width:${Math.min(p,100)}%;background:${col}"></div></div></div>`;}).join('')}</div>
-  <div class="st">Top 5 Sales Reps</div><table><thead><tr><th>#</th><th>Rep</th><th class="r">Revenue</th></tr></thead><tbody>${top5.map(([n,rv],i)=>`<tr><td>${i+1}</td><td style="font-weight:700">${n}</td><td class="r" style="font-weight:700;color:#2563eb">${fmtRp(rv)}</td></tr>`).join('')}</tbody></table>
-  <div class="ftr"><span>MKU &amp; MKS Dashboard</span><span>March 2026</span><span>Internal Use Only</span></div>
+  const colP=p=>p>=timePct?'#059669':p>=(timePct*0.75)?'#d97706':'#dc2626';
+
+  const htmlStr=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${mon} Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Plus Jakarta Sans',sans-serif;padding:28px 32px;font-size:11px;color:#1a2035;background:#fff;}
+.hdr{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;padding-bottom:14px;border-bottom:3px solid #1a2035;}
+.ht{font-size:1.4rem;font-weight:800;}.mku{color:#dc2626;}.mks{color:#2563eb;}
+.badge-date{background:#eff4ff;color:#2563eb;font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:4px;margin-top:6px;display:inline-block;}
+.section-title{font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#8a93b0;margin:16px 0 8px;padding-bottom:5px;border-bottom:1px solid #e4e8ef;}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px;}
+.kpi{border:1px solid #e4e8ef;border-radius:8px;padding:10px 12px;border-left:3px solid;}
+.kl{font-size:.55rem;font-weight:700;color:#8a93b0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
+.kv{font-size:1.05rem;font-weight:800;}
+.tgt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px;}
+.tgt{border:1px solid #e4e8ef;border-radius:8px;padding:10px 12px;}
+.tn{font-size:.63rem;font-weight:700;margin-bottom:4px;}
+.tp{font-size:1.1rem;font-weight:800;margin-bottom:2px;}
+.pb{background:#e4e8ef;border-radius:99px;height:5px;overflow:hidden;margin-bottom:3px;}
+.pbf{height:5px;border-radius:99px;}
+.psub{font-size:.57rem;color:#8a93b0;}
+.grand{background:linear-gradient(135deg,#eff4ff,#dce8ff);border:1px solid #c7d8fc;border-radius:8px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+.grand-pct{font-size:2rem;font-weight:800;color:#1a2035;}
+.grand-sub{font-size:.65rem;color:#4a5472;}
+table{width:100%;border-collapse:collapse;font-size:.68rem;margin-bottom:12px;}
+th{background:#f4f6f9;padding:6px 8px;text-align:left;font-size:.56rem;font-weight:700;color:#8a93b0;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e4e8ef;}
+td{padding:6px 8px;border-bottom:1px solid #f4f6f9;vertical-align:middle;}
+td.r{text-align:right;}
+.pbar{background:#e4e8ef;border-radius:99px;height:4px;width:80px;display:inline-block;vertical-align:middle;}
+.pbar-f{height:4px;border-radius:99px;}
+.badge{display:inline-block;font-size:.56rem;font-weight:700;padding:2px 6px;border-radius:3px;}
+tfoot td{font-weight:700;background:#f8f9fd;border-top:2px solid #e4e8ef;}
+.ftr{margin-top:18px;padding-top:10px;border-top:1px solid #e4e8ef;display:flex;justify-content:space-between;font-size:.57rem;color:#8a93b0;}
+.page2{page-break-before:always;padding-top:20px;}
+@media print{body{padding:14px 18px;}@page{margin:1cm;size:A4;}}
+</style></head><body>
+
+<div class="hdr">
+  <div>
+    <div class="ht"><span class="mku">MKU</span> &amp; <span class="mks">MKS</span> — ${mon} Report</div>
+    <div class="badge-date">📅 ${dateLabel} &nbsp;·&nbsp; Generated ${new Date().toLocaleDateString('id-ID')}</div>
+  </div>
+  <div style="font-size:.63rem;color:#8a93b0;text-align:right">Area Manager Dashboard<br><strong style="color:#1a2035">Confidential</strong></div>
+</div>
+
+<div class="section-title">📊 Key Performance Indicators</div>
+<div class="kpis">
+  <div class="kpi" style="border-left-color:#2563eb"><div class="kl">Total Revenue</div><div class="kv" style="color:#2563eb">${fmtRp(agg.rev)}</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">${agg.cnt} orders · ${agg.cust_cnt} customers</div></div>
+  <div class="kpi" style="border-left-color:#059669"><div class="kl">Monthly Target</div><div class="kv" style="color:${colP(tp)}">${tp}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">${fmtRp(tot_a)} / ${fmtRp(tot_t)}</div></div>
+  <div class="kpi" style="border-left-color:#7c3aed"><div class="kl">Nestlé Target</div><div class="kv" style="color:${colP(pct(T.NESTLE?.achievement||0,T.NESTLE?.target||1))}">${pct(T.NESTLE?.achievement||0,T.NESTLE?.target||1)}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">${fmtRp(T.NESTLE?.achievement||0)} / ${fmtRp(T.NESTLE?.target||0)}</div></div>
+  <div class="kpi" style="border-left-color:#d97706"><div class="kl">Time Elapsed</div><div class="kv" style="color:#d97706">${timePct}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">Day ${dayNum} of 30 &nbsp;·&nbsp; on-track ≥${timePct}%</div></div>
+</div>
+
+<div class="section-title">🎯 Target vs Achievement</div>
+<div class="grand">
+  <div><div style="font-size:.6rem;font-weight:700;color:#2563eb;text-transform:uppercase;margin-bottom:4px">🎯 Grand Total (Food + Bev + Nestlé)</div><div style="font-size:.68rem;color:#4a5472">${fmtRp(tot_a)} achieved of ${fmtRp(tot_t)} target</div></div>
+  <div class="grand-pct">${tp}%</div>
+</div>
+<div class="tgt-grid">
+${Object.entries(T).map(([c,t])=>{const p=pct(t.achievement,t.target),col=colP(p);return`<div class="tgt"><div class="tn">${{FOOD:'🍽️ FOOD',BEVERAGE:'🥤 BEVERAGE',NESTLE:'☕ NESTLÉ'}[c]||c}</div><div class="tp" style="color:${col}">${p}%</div><div class="pb"><div class="pbf" style="width:${Math.min(p,100)}%;background:${col}"></div></div><div class="psub">${fmtRp(t.achievement)} / ${fmtRp(t.target)}</div></div>`;}).join('')}
+</div>
+
+<div class="section-title">📍 Area Performance Detail</div>
+<table>
+<thead><tr><th>Area</th><th>Sales Rep</th><th class="r">Food Ach</th><th class="r">Bev Ach</th><th class="r">Total Target</th><th class="r">Total Achieved</th><th style="width:100px">Progress (on track ≥${timePct}%)</th></tr></thead>
+<tbody>
+${(areas||[]).map(a=>{const p=a.pct,col=colP(p);return`<tr>
+  <td style="font-weight:600;font-size:.66rem">${a.area}</td>
+  <td style="color:#8a93b0;font-size:.62rem">${a.sales}</td>
+  <td class="r">${fmtRp(a.food_ach)}</td>
+  <td class="r">${fmtRp(a.bev_ach)}</td>
+  <td class="r" style="color:#8a93b0">${fmtRp(a.food_target+a.bev_target)}</td>
+  <td class="r" style="font-weight:700">${fmtRp(a.food_ach+a.bev_ach)}</td>
+  <td><div style="display:flex;align-items:center;gap:5px"><div class="pbar"><div class="pbar-f" style="width:${Math.min(p,100)}%;background:${col}"></div></div><span style="font-weight:700;color:${col}">${p}%</span></div></td>
+</tr>`;}).join('')}
+</tbody>
+<tfoot><tr>
+  <td colspan="2">GRAND TOTAL</td>
+  <td class="r" style="color:#2563eb">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_ach,0))}</td>
+  <td class="r" style="color:#059669">${fmtRp((areas||[]).reduce((s,a)=>s+a.bev_ach,0))}</td>
+  <td class="r">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_target+a.bev_target,0))}</td>
+  <td class="r">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_ach+a.bev_ach,0))}</td>
+  <td><span style="font-weight:700;color:${colP(tp)}">${tp}%</span></td>
+</tr></tfoot>
+</table>
+
+<div class="section-title">☕ Nestlé Channel Detail</div>
+<table>
+<thead><tr><th>Channel</th><th>Sales Rep</th><th class="r">Target</th><th class="r">Achievement</th><th style="width:100px">Progress</th></tr></thead>
+<tbody>
+${(nestleA||[]).map(n=>{const p=pct(n.achievement,n.target),col=colP(p);return`<tr>
+  <td style="font-weight:600">${n.area}</td><td style="color:#8a93b0;font-size:.62rem">${n.sales||'—'}</td>
+  <td class="r" style="color:#8a93b0">${fmtRp(n.target)}</td>
+  <td class="r" style="font-weight:700">${fmtRp(n.achievement)}</td>
+  <td><div style="display:flex;align-items:center;gap:5px"><div class="pbar"><div class="pbar-f" style="width:${Math.min(p,100)}%;background:${col}"></div></div><span style="font-weight:700;color:${col}">${p}%</span></div></td>
+</tr>`;}).join('')}
+</tbody>
+<tfoot><tr>
+  <td colspan="2">GRAND TOTAL</td>
+  <td class="r">${fmtRp((nestleA||[]).reduce((s,n)=>s+n.target,0))}</td>
+  <td class="r">${fmtRp((nestleA||[]).reduce((s,n)=>s+n.achievement,0))}</td>
+  <td><span style="font-weight:700;color:${colP(pct((nestleA||[]).reduce((s,n)=>s+n.achievement,0),(nestleA||[]).reduce((s,n)=>s+n.target,0)))}">${pct((nestleA||[]).reduce((s,n)=>s+n.achievement,0),(nestleA||[]).reduce((s,n)=>s+n.target,0))}%</span></td>
+</tr></tfoot>
+</table>
+
+<div class="section-title">👥 Top Sales Reps</div>
+<table>
+<thead><tr><th>#</th><th>Rep</th><th>Division</th><th class="r">Revenue</th></tr></thead>
+<tbody>
+${top5.map(([n,rv],i)=>{const divMapPdf={};RAW.so.forEach(r=>{divMapPdf[r.sales]=r.division;});const div=divMapPdf[n]||'—';return`<tr><td style="font-weight:800;color:#8a93b0">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td><td style="font-weight:700">${n}</td><td><span class="badge" style="background:${div==='MKU Bali'?'#fef2f2':'#eff4ff'};color:${div==='MKU Bali'?'#dc2626':'#2563eb'}">${div==='MKU Bali'?'MKU':div==='MKS Bali'?'MKS':'—'}</span></td><td class="r" style="font-weight:700;color:#2563eb">${fmtRp(rv)}</td></tr>`;}).join('')}
+</tbody>
+</table>
+
+<div class="ftr">
+  <span>MKU &amp; MKS Area Dashboard</span>
+  <span>${mon} · ${dateLabel}</span>
+  <span>Internal Use Only · Confidential</span>
+</div>
 </body></html>`;
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([htmlStr],{type:'text/html'}));a.download='MKU_MKS_Report_Mar2026.html';a.click();
+
+  const w=window.open('','_blank');
+  w.document.write(htmlStr);
+  w.document.close();
+  setTimeout(()=>w.print(),800);
   document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));
 }
 
