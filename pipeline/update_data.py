@@ -452,6 +452,39 @@ def parse_targets(path, date_str):
 
 
 # ── Find upload files ──────────────────────────────────────────────────────────
+def norm_name(filename):
+    """Normalise filename for matching: lowercase, replace spaces with underscores."""
+    return filename.lower().replace(" ", "_")
+
+def extract_date(name):
+    """
+    Try to extract a YYYY-MM-DD date from a filename.
+    Handles: 2026-04-21, 21 Apr 2026, 21_Apr_2026, 21Apr2026, etc.
+    """
+    # YYYY-MM-DD
+    m = re.search(r"(\d{4})[-_](\d{2})[-_](\d{2})", name)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+
+    # DD-MM-YYYY or DD_MM_YYYY
+    m = re.search(r"(\d{2})[-_](\d{2})[-_](\d{4})", name)
+    if m:
+        return f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
+
+    # DD Mon YYYY (e.g. "21 Apr 2026" or "21_Apr_2026")
+    MONTHS = {
+        "jan":"01","feb":"02","mar":"03","apr":"04","mei":"05","may":"05",
+        "jun":"06","jul":"07","agu":"08","aug":"08","sep":"09",
+        "okt":"10","oct":"10","nov":"11","des":"12","dec":"12"
+    }
+    m = re.search(r"(\d{1,2})[\s_-]?([a-z]{3})[\s_-]?(\d{4})", name.lower())
+    if m:
+        mon = MONTHS.get(m.group(2))
+        if mon:
+            return f"{m.group(3)}-{mon}-{int(m.group(1)):02d}"
+
+    return None
+
 def find_uploads():
     files = list(UPLOADS_DIR.glob("*.xlsx"))
     if not files:
@@ -462,33 +495,34 @@ def find_uploads():
     date_str = None
 
     for f in files:
-        name = f.name
-        if re.match(r"DATA_PENCAPAIAN", name, re.IGNORECASE):
+        n = norm_name(f.name)  # normalised for matching
+
+        if "data_pencapaian" in n:
             pencapaian = f
-        elif re.match(r"Report_SO_MKU_MKS_", name, re.IGNORECASE):
+
+        elif "report_so_mku_mks" in n or "report so mku mks" in f.name.lower():
             so_file = f
-            m = re.search(r"(\d{4}-\d{2}-\d{2})", name)
-            if m:
-                date_str = m.group(1)
-            else:
-                m2 = re.search(r"(\d{2})(\d{2})(\d{4})", name)
-                if m2:
-                    date_str = f"{m2.group(3)}-{m2.group(2)}-{m2.group(1)}"
-        elif re.match(r"Stok_MKU_", name, re.IGNORECASE):
+            date_str = extract_date(f.name)
+
+        elif re.search(r"stok.?mku", n):
             stk_mku = f
-        elif re.match(r"Stok_MKS_", name, re.IGNORECASE):
+
+        elif re.search(r"stok.?mks", n):
             stk_mks = f
-        elif re.match(r"MKU_", name, re.IGNORECASE):
+
+        # Delivery files: "MKU ..." or "MKU_..." but NOT Stok_MKU
+        elif re.match(r"mku", n) and "stok" not in n:
             del_mku = f
-        elif re.match(r"MKS_", name, re.IGNORECASE):
+
+        elif re.match(r"mks", n) and "stok" not in n:
             del_mks = f
 
     missing = []
-    if not so_file:    missing.append("Report_SO_MKU_MKS_[date].xlsx")
-    if not stk_mku:    missing.append("Stok_MKU_[date].xlsx")
-    if not stk_mks:    missing.append("Stok_MKS_[date].xlsx")
-    if not del_mku:    missing.append("MKU_[date].xlsx")
-    if not del_mks:    missing.append("MKS_[date].xlsx")
+    if not so_file:    missing.append("Report SO MKU MKS [date].xlsx")
+    if not stk_mku:    missing.append("Stok MKU [date].xlsx")
+    if not stk_mks:    missing.append("Stok MKS [date].xlsx")
+    if not del_mku:    missing.append("MKU [date].xlsx")
+    if not del_mks:    missing.append("MKS [date].xlsx")
     if not pencapaian: missing.append("DATA_PENCAPAIAN_[year].xlsx")
     if missing:
         print("ERROR: Missing upload files:\n  " + "\n  ".join(missing))
