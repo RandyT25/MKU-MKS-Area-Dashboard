@@ -393,23 +393,39 @@ def parse_targets(path, date_str):
 
     # ── Balian table ──────────────────────────────────────────────────────────
     balian_start = find_row("BALIAN", col=1)
-    balian_by_area = {}
+    balian_rows = []  # ordered list to preserve display order
     if balian_start is not None:
-        for i in range(balian_start + 2, balian_start + 20):
+        for i in range(balian_start + 2, balian_start + 25):
             if i >= len(rows): break
             r = rows[i]
             area_raw  = cell(r, 1)
             sales_raw = cell(r, 2)
-            if not area_raw or area_raw.upper() in ("GRAND TOTAL", "AREA", ""):
+            if not area_raw or area_raw.upper() in ("GRAND TOTAL", "AREA", "", "NESTLE", "CHANNEL / AREA"):
+                if area_raw.upper() in ("NESTLE", "CHANNEL / AREA"):
+                    break  # stop — we've hit the Nestlé section
                 continue
             ach = fval(r[3])
+            sales_n = SALES_NORM_MAP.get(sales_raw.upper(), sales_raw)
+
+            # Map area name — try AREA_NAME_MAP first, fallback to cleaned raw name
             matched = None
             for k, v in AREA_NAME_MAP.items():
                 if k in area_raw.upper():
                     matched = v; break
-            if matched:
-                sales_n = SALES_NORM_MAP.get(sales_raw.upper(), sales_raw)
-                balian_by_area[matched] = {"sales": sales_n, "ach": rint(ach)}
+
+            # Handle Naughty Nuris rows
+            if "NAUGHTY NURIS" in area_raw.upper():
+                if "MADE LUIH" in sales_raw.upper() or "NN MADE" in sales_raw.upper():
+                    matched = "NAUGHTY NURIS (SANUR)"
+                    sales_n = "I Made Luih"
+                else:
+                    matched = "NAUGHTY NURIS (SEMINYAK)"
+                    sales_n = "Sujana"
+
+            if not matched:
+                matched = area_raw.strip()  # use raw name as fallback key
+
+            balian_rows.append({"area": matched, "sales": sales_n, "ach": rint(ach)})
 
     # ── Nestlé targets from TARGETS sheet ─────────────────────────────────────
     tdf  = pd.read_excel(path, sheet_name="TARGETS", header=None)
@@ -447,7 +463,7 @@ def parse_targets(path, date_str):
              "achievement": rint(np3_final), "pct": np3_pct},
         ],
         "area_targets": area_targets,
-        "balian": balian_by_area,
+        "balian": balian_rows,
     }
 
 
