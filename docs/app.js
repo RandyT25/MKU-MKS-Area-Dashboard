@@ -56,73 +56,18 @@ function getAggSummary(){
   const dates=activeDate==='ALL'?RAW.dates:[activeDate];
   const agg={rev:0,cnt:0,rep_rev:{},prod_rev:{},cust:{}};
   const custSet=new Set();
-
-  // Build division map from full SO rows (always available for latest day)
-  const divMap={};
-  RAW.so.forEach(r=>{divMap[r.sales]=r.division;});
-
-  // For latest day with company filter — use full SO rows for accuracy
-  if(company!=='ALL' && dates.includes(RAW.latest)){
-    const soFull=RAW.so.filter(r=>r.division===(company==='MKU'?'MKU Bali':'MKS Bali'));
-    soFull.forEach(r=>{
-      agg.rev+=r.revenue||0; agg.cnt+=1;
-      agg.rep_rev[r.sales]=(agg.rep_rev[r.sales]||0)+r.revenue;
-      agg.prod_rev[r.product]=(agg.prod_rev[r.product]||0)+r.revenue;
-      if(!agg.cust[r.customer])agg.cust[r.customer]={rev:0,so:0,sales:r.sales,div:r.division};
-      agg.cust[r.customer].rev+=r.revenue; agg.cust[r.customer].so+=1;
-      custSet.add(r.customer);
+  dates.forEach(d=>{
+    const s=getSummary(d);
+    agg.rev+=s.rev||0;
+    agg.cnt+=s.cnt||0;
+    Object.entries(s.rep_rev||{}).forEach(([k,v])=>{agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
+    Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
+    Object.entries(s.cust||{}).forEach(([k,v])=>{
+      if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
+      agg.cust[k].rev+=v.rev;agg.cust[k].so+=v.so;
     });
-    // Add compressed historical days filtered by division
-    dates.filter(d=>d!==RAW.latest).forEach(d=>{
-      const s=getSummary(d);
-      Object.entries(s.rep_rev||{}).forEach(([k,v])=>{
-        const div=divMap[k];
-        if(!div||div===(company==='MKU'?'MKU Bali':'MKS Bali')){
-          agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;
-        }
-      });
-      Object.entries(s.cust||{}).forEach(([k,v])=>{
-        const div=divMap[v.sales];
-        if(!div||div===(company==='MKU'?'MKU Bali':'MKS Bali')){
-          if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
-          agg.cust[k].rev+=v.rev; agg.cust[k].so+=v.so; custSet.add(k);
-          agg.rev+=v.rev; agg.cnt+=v.so;
-        }
-      });
-      Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
-    });
-  } else {
-    // No company filter or historical only — use summaries as-is
-    dates.forEach(d=>{
-      const s=getSummary(d);
-      if(company!=='ALL'){
-        // Filter by division map for each rep
-        agg.rev+=company==='MKU'?(s.mku_rev||0):(s.mks_rev||0);
-        Object.entries(s.rep_rev||{}).forEach(([k,v])=>{
-          const div=divMap[k];
-          if(!div||div===(company==='MKU'?'MKU Bali':'MKS Bali'))
-            agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;
-        });
-        Object.entries(s.cust||{}).forEach(([k,v])=>{
-          const div=divMap[v.sales];
-          if(!div||div===(company==='MKU'?'MKU Bali':'MKS Bali')){
-            if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
-            agg.cust[k].rev+=v.rev; agg.cust[k].so+=v.so; custSet.add(k); agg.cnt+=v.so;
-          }
-        });
-        Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
-      } else {
-        agg.rev+=s.rev||0; agg.cnt+=s.cnt||0;
-        Object.entries(s.rep_rev||{}).forEach(([k,v])=>{agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
-        Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
-        Object.entries(s.cust||{}).forEach(([k,v])=>{
-          if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
-          agg.cust[k].rev+=v.rev; agg.cust[k].so+=v.so;
-        });
-        Object.keys(s.cust||{}).forEach(k=>custSet.add(k));
-      }
-    });
-  }
+    Object.keys(s.cust||{}).forEach(k=>custSet.add(k));
+  });
   agg.cust_cnt=custSet.size;
   return agg;
 }
@@ -153,18 +98,18 @@ function getDelStats(){
   dates.forEach(d=>{
     const dd=RAW.delivery_by_date[d];if(!dd)return;
     if(isLatest(d)){
-      let mku=dd.mku_full||[];
-      let mks=dd.mks_full||[];
-      if(company==='MKU')mks=[];
-      if(company==='MKS')mku=[];
-      const full=[...mku,...mks];
+      const full=[...(dd.mku_full||[]),...(dd.mks_full||[])];
+      if(company!=='ALL'){
+        const filtered=full.filter(r=>r.co===(company==='MKU'?'MKU':'MKS')||
+          (company==='MKU'&&(dd.mku_full||[]).includes(r))||
+          (company==='MKS'&&(dd.mks_full||[]).includes(r)));
+        // simplified: use summary
+      }
       tot+=full.length;
       ful+=full.filter(r=>r.ket==='FULFILLED').length;
-      full.forEach(r=>{
-        const a=(r.area||'All Areas').trim()||'All Areas';
+      Object.entries(dd.by_area||{}).forEach(([a,v])=>{
         if(!by_area[a])by_area[a]={t:0,ok:0};
-        by_area[a].t+=1;
-        if(r.ket==='FULFILLED')by_area[a].ok+=1;
+        by_area[a].t+=v.t;by_area[a].ok+=v.ok;
       });
     } else {
       tot+=dd.tot||0;ful+=dd.ful||0;
@@ -329,15 +274,16 @@ function renderTarget(){
     </tr></tfoot>`;
 
   // ── Balian table ──────────────────────────────────────────────
-  const balian=getTgt().balian||{};
-  const balianRows=Object.entries(balian).filter(([,v])=>v.ach>0);
-  const balianTotal=balianRows.reduce((s,[,v])=>s+v.ach,0);
+  const balian=getTgt().balian||[];
+  // Support both old dict format and new list format
+  const balianList=Array.isArray(balian)?balian:Object.entries(balian).map(([area,v])=>({area,sales:v.sales,ach:v.ach}));
+  const balianTotal=balianList.reduce((s,r)=>s+r.ach,0);
   const balianEl=document.getElementById('tbl-balian');
   if(balianEl){
-    if(balianRows.length===0){
+    if(balianList.length===0){
       balianEl.innerHTML='<tbody><tr><td colspan="3" style="text-align:center;color:var(--txt3);padding:20px">No Balian data for this date</td></tr></tbody>';
     } else {
-      balianEl.innerHTML=`<thead><tr><th>Area</th><th>Sales</th><th class="num">Achievement</th></tr></thead><tbody>${balianRows.map(([area,v])=>`<tr><td style="font-weight:600">${area}</td><td style="color:var(--txt2);font-size:.68rem">${v.sales}</td><td class="num" style="font-weight:700;color:var(--org)">${fmtRp(v.ach)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2"><strong>GRAND TOTAL</strong></td><td class="num"><strong style="color:var(--org)">${fmtRp(balianTotal)}</strong></td></tr></tfoot>`;
+      balianEl.innerHTML=`<thead><tr><th>Area</th><th>Sales</th><th class="num">Achievement</th></tr></thead><tbody>${balianList.map(r=>`<tr><td style="font-weight:600">${r.area}</td><td style="color:var(--txt2);font-size:.68rem">${r.sales}</td><td class="num" style="font-weight:700;color:${r.ach>0?'var(--org)':'var(--txt3)'}">${r.ach>0?fmtRp(r.ach):'—'}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2"><strong>GRAND TOTAL</strong></td><td class="num"><strong style="color:var(--org)">${fmtRp(balianTotal)}</strong></td></tr></tfoot>`;
     }
   }
 }
