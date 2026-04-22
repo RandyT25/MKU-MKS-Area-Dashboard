@@ -160,15 +160,36 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
   .page{padding:12px 12px 90px;}
   .kpi-strip.n6,.kpi-strip.n5{grid-template-columns:repeat(2,1fr);}
   .kpi-strip.n4{grid-template-columns:repeat(2,1fr);}
-  .tab-bar{display:none!important;}.chart-wrap{height:200px!important;}
-  .card{padding:14px;}.tbl{font-size:.67rem;}
-  .tbl thead th,.tbl tbody td,.tbl tfoot td{padding:7px 8px;}
-  .sg{grid-template-columns:repeat(2,1fr);}
+  .tab-bar{display:none!important;}
+  .chart-wrap{height:180px!important;}
+  .card{padding:12px;margin-bottom:10px;}
+  .card-hdr{margin-bottom:10px;padding-bottom:8px;}
+  .card-title{font-size:.73rem;}
+  /* Tables: make them scroll horizontally */
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .tbl{font-size:.64rem;min-width:360px;}
+  .tbl thead th,.tbl tbody td,.tbl tfoot td{padding:6px 7px;white-space:nowrap;}
+  /* Target cards: 1 column on mobile */
   #tgt-cats > div{grid-template-columns:1fr 1fr!important;}
   #nestle-cards{grid-template-columns:1fr!important;}
+  /* Stock grid: 1 column on small screens */
+  .sg{grid-template-columns:repeat(2,1fr);}
+  /* G2 grid: single column */
+  .g2{grid-template-columns:1fr!important;}
+  /* Accord */
+  .accord-hdr{padding:12px 14px;}
+  .accord-inner{padding:0 12px 12px;}
+  /* KPI cards tighter */
+  .kpi-value{font-size:1.2rem;}
+  .kpi-card{padding:12px;}
+  /* Delivery KPIs */
+  .kpi-strip.n5{grid-template-columns:repeat(2,1fr);}
 }
 @media(max-width:420px){
   .kpi-strip.n6,.kpi-strip.n5,.kpi-strip.n4{grid-template-columns:1fr 1fr;}
+  #tgt-cats > div{grid-template-columns:1fr!important;}
+  .tbl{min-width:300px;font-size:.60rem;}
+  .sg{grid-template-columns:1fr 1fr;}
 }
 
 .date-dd-wrap{position:relative;flex-shrink:0;}
