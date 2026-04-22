@@ -157,38 +157,53 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
 @media(max-width:1100px){.kpi-strip.n6{grid-template-columns:repeat(3,1fr);}.g2{grid-template-columns:1fr;}}
 @media(max-width:768px){
   .topbar{display:none!important;}.mobile-topbar{display:block!important;}.mob-nav{display:block!important;}
-  .page{padding:12px 12px 90px;}
-  .kpi-strip.n6,.kpi-strip.n5{grid-template-columns:repeat(2,1fr);}
-  .kpi-strip.n4{grid-template-columns:repeat(2,1fr);}
+  .page{padding:10px 10px 90px;}
+
+  /* KPI cards */
+  .kpi-strip.n6,.kpi-strip.n5,.kpi-strip.n4{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .kpi-card{padding:12px;}
+  .kpi-value{font-size:1.2rem;}
+  .kpi-icon{width:28px;height:28px;font-size:.8rem;margin-bottom:7px;}
+
+  /* Tabs hidden, charts smaller */
   .tab-bar{display:none!important;}
   .chart-wrap{height:180px!important;}
+
+  /* Cards */
   .card{padding:12px;margin-bottom:10px;}
   .card-hdr{margin-bottom:10px;padding-bottom:8px;}
   .card-title{font-size:.73rem;}
-  /* Tables: make them scroll horizontally */
+  .g2{grid-template-columns:1fr!important;gap:10px;}
+
+  /* Tables scroll horizontally */
   .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-  .tbl{font-size:.64rem;min-width:360px;}
+  .tbl{font-size:.64rem;min-width:400px;}
   .tbl thead th,.tbl tbody td,.tbl tfoot td{padding:6px 7px;white-space:nowrap;}
-  /* Target cards: 1 column on mobile */
-  #tgt-cats > div{grid-template-columns:1fr 1fr!important;}
-  #nestle-cards{grid-template-columns:1fr!important;}
-  /* Stock grid: 1 column on small screens */
+
+  /* Stock grid */
   .sg{grid-template-columns:repeat(2,1fr);}
-  /* G2 grid: single column */
-  .g2{grid-template-columns:1fr!important;}
+
+  /* Target cards — 2 col */
+  #tgt-cats > div{grid-template-columns:1fr 1fr!important;gap:8px!important;}
+
+  /* Date dropdown — open to right on mobile so it doesn't go off screen */
+  .date-dd-menu{left:0;right:auto;min-width:140px;}
+
+  /* Download menu — fix mobile positioning */
+  .dl-wrap .dl-menu{right:0;left:auto;min-width:200px;}
+  #m-dl-wrap .dl-menu{right:0;left:auto;min-width:200px;top:calc(100% + 6px);}
+
+  /* Delivery KPIs — wrap nicely */
+  .kpi-strip.n5{grid-template-columns:repeat(2,1fr);}
+
   /* Accord */
   .accord-hdr{padding:12px 14px;}
   .accord-inner{padding:0 12px 12px;}
-  /* KPI cards tighter */
-  .kpi-value{font-size:1.2rem;}
-  .kpi-card{padding:12px;}
-  /* Delivery KPIs */
-  .kpi-strip.n5{grid-template-columns:repeat(2,1fr);}
 }
 @media(max-width:420px){
   .kpi-strip.n6,.kpi-strip.n5,.kpi-strip.n4{grid-template-columns:1fr 1fr;}
-  #tgt-cats > div{grid-template-columns:1fr!important;}
-  .tbl{min-width:300px;font-size:.60rem;}
+  #tgt-cats > div{grid-template-columns:1fr 1fr!important;}
+  .tbl{min-width:320px;font-size:.61rem;}
   .sg{grid-template-columns:1fr 1fr;}
 }
 

@@ -56,53 +56,47 @@ function getAggSummary(){
   const dates=activeDate==='ALL'?RAW.dates:[activeDate];
   const agg={rev:0,cnt:0,rep_rev:{},prod_rev:{},cust:{}};
   const custSet=new Set();
-  // Division map built from full SO rows (always available for latest day)
   const divMap={};RAW.so.forEach(r=>{divMap[r.sales]=r.division;});
   const div_target=company==='MKU'?'MKU Bali':company==='MKS'?'MKS Bali':null;
   const passDiv=name=>!div_target||!divMap[name]||divMap[name]===div_target;
-
   if(company!=='ALL'&&dates.includes(RAW.latest)){
-    // Use full SO rows for latest day — most accurate
     RAW.so.filter(r=>r.division===div_target).forEach(r=>{
-      agg.rev+=r.revenue||0; agg.cnt+=1;
+      agg.rev+=r.revenue||0;agg.cnt+=1;
       agg.rep_rev[r.sales]=(agg.rep_rev[r.sales]||0)+r.revenue;
       agg.prod_rev[r.product]=(agg.prod_rev[r.product]||0)+r.revenue;
       if(!agg.cust[r.customer])agg.cust[r.customer]={rev:0,so:0,sales:r.sales,div:r.division};
-      agg.cust[r.customer].rev+=r.revenue; agg.cust[r.customer].so+=1; custSet.add(r.customer);
+      agg.cust[r.customer].rev+=r.revenue;agg.cust[r.customer].so+=1;custSet.add(r.customer);
     });
-    // Add historical compressed days filtered by division map
     dates.filter(d=>d!==RAW.latest).forEach(d=>{
       const s=getSummary(d);
-      const dayRev=company==='MKU'?(s.mku_rev||0):(s.mks_rev||0);
-      agg.rev+=dayRev;
+      agg.rev+=company==='MKU'?(s.mku_rev||0):(s.mks_rev||0);
       Object.entries(s.rep_rev||{}).forEach(([k,v])=>{if(passDiv(k))agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
       Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
       Object.entries(s.cust||{}).forEach(([k,v])=>{
         if(!passDiv(v.sales))return;
         if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
-        agg.cust[k].rev+=v.rev; agg.cust[k].so+=v.so; custSet.add(k); agg.cnt+=v.so;
+        agg.cust[k].rev+=v.rev;agg.cust[k].so+=v.so;custSet.add(k);agg.cnt+=v.so;
       });
     });
   } else {
     dates.forEach(d=>{
       const s=getSummary(d);
       if(company!=='ALL'){
-        agg.rev+=company==='MKU'?(s.mku_rev||0):(s.mks_rev||0);
-        agg.cnt+=s.cnt||0;
+        agg.rev+=company==='MKU'?(s.mku_rev||0):(s.mks_rev||0);agg.cnt+=s.cnt||0;
         Object.entries(s.rep_rev||{}).forEach(([k,v])=>{if(passDiv(k))agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
         Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
         Object.entries(s.cust||{}).forEach(([k,v])=>{
           if(!passDiv(v.sales))return;
           if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
-          agg.cust[k].rev+=v.rev; agg.cust[k].so+=v.so; custSet.add(k);
+          agg.cust[k].rev+=v.rev;agg.cust[k].so+=v.so;custSet.add(k);
         });
       } else {
-        agg.rev+=s.rev||0; agg.cnt+=s.cnt||0;
+        agg.rev+=s.rev||0;agg.cnt+=s.cnt||0;
         Object.entries(s.rep_rev||{}).forEach(([k,v])=>{agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
         Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
         Object.entries(s.cust||{}).forEach(([k,v])=>{
           if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
-          agg.cust[k].rev+=v.rev; agg.cust[k].so+=v.so; custSet.add(k);
+          agg.cust[k].rev+=v.rev;agg.cust[k].so+=v.so;custSet.add(k);
         });
       }
     });
@@ -140,7 +134,7 @@ function getDelStats(){
       let rows=[];
       if(company==='ALL'||company==='MKU')(dd.mku_full||[]).forEach(r=>rows.push({...r,co:'MKU'}));
       if(company==='ALL'||company==='MKS')(dd.mks_full||[]).forEach(r=>rows.push({...r,co:'MKS'}));
-      tot+=rows.length; ful+=rows.filter(r=>r.ket==='FULFILLED').length;
+      tot+=rows.length;ful+=rows.filter(r=>r.ket==='FULFILLED').length;
       rows.forEach(r=>{const a=(r.area||'All Areas').trim()||'All Areas';if(!by_area[a])by_area[a]={t:0,ok:0};by_area[a].t+=1;if(r.ket==='FULFILLED')by_area[a].ok+=1;});
     } else {
       tot+=dd.tot||0;ful+=dd.ful||0;
@@ -479,7 +473,14 @@ function renderAlerts(){
 }
 
 function tog(id){document.getElementById(id).classList.toggle('open');}
-function toggleDL(){document.getElementById('dl-wrap').classList.toggle('open');}
+function toggleDL(){
+  // Toggle both desktop and mobile download menus
+  const dw=document.getElementById('dl-wrap');
+  const mw=document.getElementById('m-dl-wrap');
+  const isOpen=(dw&&dw.classList.contains('open'))||(mw&&mw.classList.contains('open'));
+  document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));
+  if(!isOpen){if(dw)dw.classList.add('open');if(mw)mw.classList.add('open');}
+}
 document.addEventListener('click',e=>{if(!e.target.closest('.dl-wrap')&&!e.target.closest('.date-dd-wrap')){document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));document.querySelectorAll('.date-dd-wrap').forEach(w=>w.classList.remove('open'));}});
 
 function dlExcel(){
