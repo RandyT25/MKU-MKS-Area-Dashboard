@@ -474,12 +474,9 @@ function renderAlerts(){
 
 function tog(id){document.getElementById(id).classList.toggle('open');}
 function toggleDL(){
-  // Toggle both desktop and mobile download menus
-  const dw=document.getElementById('dl-wrap');
-  const mw=document.getElementById('m-dl-wrap');
-  const isOpen=(dw&&dw.classList.contains('open'))||(mw&&mw.classList.contains('open'));
+  const isOpen=document.querySelector('.dl-wrap.open')!==null;
   document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));
-  if(!isOpen){if(dw)dw.classList.add('open');if(mw)mw.classList.add('open');}
+  if(!isOpen){document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.add('open'));}
 }
 document.addEventListener('click',e=>{if(!e.target.closest('.dl-wrap')&&!e.target.closest('.date-dd-wrap')){document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));document.querySelectorAll('.date-dd-wrap').forEach(w=>w.classList.remove('open'));}});
 
