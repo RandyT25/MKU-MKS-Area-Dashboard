@@ -31,7 +31,7 @@ function setDate(d){
 function toggleDateDD(){
   const wrap=document.getElementById('date-dd-wrap');
   const mwrap=document.getElementById('m-date-dd-wrap');
-  const isOpen=wrap&&wrap.classList.contains('open');
+  const isOpen=(wrap&&wrap.classList.contains('open'))||(mwrap&&mwrap.classList.contains('open'));
   document.querySelectorAll('.date-dd-wrap,.dl-wrap').forEach(w=>w.classList.remove('open'));
   if(!isOpen){if(wrap)wrap.classList.add('open');if(mwrap)mwrap.classList.add('open');}
 }
@@ -58,7 +58,7 @@ function getAggSummary(){
   const custSet=new Set();
   const divMap={};RAW.so.forEach(r=>{divMap[r.sales]=r.division;});
   const divT=company==='MKU'?'MKU Bali':company==='MKS'?'MKS Bali':null;
-  const ok=n=>!divT||!divMap[n]||divMap[n]===divT;
+  const okDiv=n=>!divT||!divMap[n]||divMap[n]===divT;
   if(divT&&dates.includes(RAW.latest)){
     RAW.so.filter(r=>r.division===divT).forEach(r=>{
       agg.rev+=r.revenue||0;agg.cnt+=1;
@@ -70,10 +70,10 @@ function getAggSummary(){
     dates.filter(d=>d!==RAW.latest).forEach(d=>{
       const s=getSummary(d);
       agg.rev+=company==='MKU'?(s.mku_rev||0):(s.mks_rev||0);
-      Object.entries(s.rep_rev||{}).forEach(([k,v])=>{if(ok(k))agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
+      Object.entries(s.rep_rev||{}).forEach(([k,v])=>{if(okDiv(k))agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
       Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
       Object.entries(s.cust||{}).forEach(([k,v])=>{
-        if(!ok(v.sales))return;
+        if(!okDiv(v.sales))return;
         if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
         agg.cust[k].rev+=v.rev;agg.cust[k].so+=v.so;custSet.add(k);agg.cnt+=v.so;
       });
@@ -83,10 +83,10 @@ function getAggSummary(){
       const s=getSummary(d);
       if(divT){
         agg.rev+=company==='MKU'?(s.mku_rev||0):(s.mks_rev||0);agg.cnt+=s.cnt||0;
-        Object.entries(s.rep_rev||{}).forEach(([k,v])=>{if(ok(k))agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
+        Object.entries(s.rep_rev||{}).forEach(([k,v])=>{if(okDiv(k))agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
         Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
         Object.entries(s.cust||{}).forEach(([k,v])=>{
-          if(!ok(v.sales))return;
+          if(!okDiv(v.sales))return;
           if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
           agg.cust[k].rev+=v.rev;agg.cust[k].so+=v.so;custSet.add(k);
         });
@@ -473,11 +473,7 @@ function renderAlerts(){
 }
 
 function tog(id){document.getElementById(id).classList.toggle('open');}
-function toggleDL(){
-  const isOpen=document.querySelector('.dl-wrap.open')!==null;
-  document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));
-  if(!isOpen)document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.add('open'));
-}
+function toggleDL(){const isOpen=document.querySelector('.dl-wrap.open')!==null;document.querySelectorAll('.dl-wrap,.date-dd-wrap').forEach(w=>w.classList.remove('open'));if(!isOpen)document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.add('open'));}
 document.addEventListener('click',e=>{if(!e.target.closest('.dl-wrap')&&!e.target.closest('.date-dd-wrap')){document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));document.querySelectorAll('.date-dd-wrap').forEach(w=>w.classList.remove('open'));}});
 
 function dlExcel(){
