@@ -167,25 +167,16 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
   #tgt-cats > div{grid-template-columns:1fr 1fr!important;}
   #nestle-cards{grid-template-columns:1fr!important;}
 
-  /* Mobile date menu — items must stack vertically */
-  #m-date-dd-menu{
+  /* Mobile download menu — fixed position, always visible */
+  #m-dl-wrap .dl-menu{
     position:fixed!important;
-    top:110px!important;
-    left:10px!important;
-    right:10px!important;
-    width:auto!important;
-    max-height:55vh;
-    overflow-y:auto;
+    top:65px!important;
+    right:8px!important;
+    left:auto!important;
+    min-width:220px;
     z-index:9999!important;
     border-radius:12px;
-    box-shadow:0 8px 32px rgba(0,0,0,.25);
-  }
-  #m-date-dd-wrap.open #m-date-dd-menu{display:block!important;}
-  #m-date-dd-menu .date-dd-item{
-    display:block!important;
-    width:100%!important;
-    white-space:nowrap;
-    text-align:left;
+    box-shadow:0 8px 32px rgba(0,0,0,.2);
   }
 }
 @media(max-width:420px){
