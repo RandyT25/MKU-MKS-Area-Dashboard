@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MKU & MKS Dashboard — April 2026</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><span class="mku">MKU</span> <span style="color:var(--txt3)">&</span> <span class="mks">MKS</span> <span style="font-family:Plus Jakarta Sans;font-size:.65rem;font-weight:500;color:var(--txt3)">Area Dashboard</span></div>
+  <div class="vdiv"></div>
+  <div class="date-chip">📅 Apr 2026</div>
+  <div class="date-dd-wrap" id="date-dd-wrap"><button class="date-dd-btn" id="date-dd-btn" onclick="toggleDateDD()"><span id="date-dd-lbl">📅 All Days</span> <span class="dl-chev" id="date-dd-chev">▼</span></button><div class="date-dd-menu" id="date-dd-menu"></div></div>
+  <div class="spacer"></div>
+  <div class="co-toggle">
+    <button class="co-btn act-all" id="btn-all" onclick="setCompany('ALL')">All</button>
+    <button class="co-btn" id="btn-mku" onclick="setCompany('MKU')" style="color:var(--mku)">MKU</button>
+    <button class="co-btn" id="btn-mks" onclick="setCompany('MKS')" style="color:var(--mks)">MKS</button>
+  </div>
+  <div class="vdiv"></div>
+
+  <div class="dl-wrap" id="dl-wrap">
+    <button class="dl-btn" onclick="toggleDL()">⬇ Download <span class="dl-chev">▼</span></button>
+    <div class="dl-menu">
+      <button class="dl-item" onclick="dlPDF()">📄 <div><span>Target vs Achievement</span><span class="dl-sub">Full PDF report</span></div></button>
+      <div class="dl-divider"></div>
+      <button class="dl-item" onclick="dlExcel()">📊 <div><span>Excel — Full Data</span><span class="dl-sub">SO · Delivery · Stock (3 sheets)</span></div></button>
+    </div>
+  </div>
+</div>
+
+<div class="mobile-topbar">
+  <div class="mtb-r1">
+    <div class="logo" style="font-size:.9rem"><span class="mku">MKU</span> <span style="color:var(--txt3)">&</span> <span class="mks">MKS</span></div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <div class="co-toggle">
+        <button class="co-btn act-all" id="m-btn-all" onclick="setCompany('ALL')" style="padding:6px 10px;font-size:.65rem">All</button>
+        <button class="co-btn" id="m-btn-mku" onclick="setCompany('MKU')" style="color:var(--mku);padding:6px 10px;font-size:.65rem">MKU</button>
+        <button class="co-btn" id="m-btn-mks" onclick="setCompany('MKS')" style="color:var(--mks);padding:6px 10px;font-size:.65rem">MKS</button>
+      </div>
+      <div class="dl-wrap" id="m-dl-wrap">
+        <button class="dl-btn" style="padding:6px 11px;font-size:.67rem" onclick="toggleDL()">⬇ Download <span class="dl-chev">▼</span></button>
+        <div class="dl-menu">
+          <button class="dl-item" onclick="dlPDF()">📄 <div><span>Target vs Achievement</span><span class="dl-sub">Full PDF report</span></div></button>
+          <div class="dl-divider"></div>
+          <button class="dl-item" onclick="dlExcel()">📊 <div><span>Excel — Full Data</span><span class="dl-sub">SO · Delivery · Stock</span></div></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="mtb-r2">
+    <div class="date-chip" style="font-size:.63rem">📅 Apr 2026</div>
+    <div class="date-dd-wrap" id="m-date-dd-wrap"><button class="date-dd-btn" id="m-date-dd-btn" onclick="toggleDateDD()"><span id="m-date-dd-lbl">📅 All</span> <span class="dl-chev" id="m-date-dd-chev">▼</span></button><div class="date-dd-menu" id="m-date-dd-menu"></div></div>
+  </div>
+</div>
+
+<div class="mob-nav">
+  <div class="mob-nav-inner">
+    <button class="mnav active" id="mn-target" onclick="mobileTab('target')"><div class="mnav-icon">🎯</div><div class="mnav-lbl">Target</div></button>
+    <button class="mnav" id="mn-so" onclick="mobileTab('so')"><div class="mnav-icon">📦</div><div class="mnav-lbl">Orders</div></button>
+    <button class="mnav" id="mn-delivery" onclick="mobileTab('delivery')"><div class="mnav-icon">🚚</div><div class="mnav-lbl">Delivery</div></button>
+    <button class="mnav" id="mn-reps" onclick="mobileTab('reps')"><div class="mnav-icon">👥</div><div class="mnav-lbl">Reps</div></button>
+    <button class="mnav" id="mn-stock" onclick="mobileTab('stock')"><div class="mnav-icon">🏭</div><div class="mnav-lbl">Stock</div></button>
+    <button class="mnav" id="mn-alerts" onclick="mobileTab('alerts')"><div class="mnav-icon">🔔</div><div class="mnav-lbl">Alerts</div></button>
+  </div>
+</div>
+
+
+
+<div class="page">
+  <div class="kpi-strip n6" id="kpi-strip"></div>
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('target')">🎯 Target vs Achievement</button>
+    <button class="tab" onclick="switchTab('so')">📦 Sales Orders</button>
+    <button class="tab" onclick="switchTab('delivery')">🚚 Delivery</button>
+    <button class="tab" onclick="switchTab('reps')">👥 Sales Reps</button>
+    <button class="tab" onclick="switchTab('stock')">🏭 Stock</button>
+    <button class="tab" onclick="switchTab('alerts')">🔔 Alerts</button>
+  </div>
+
+  <div class="tc active" id="tc-target">
+    <div id="tgt-cats" style="margin-bottom:14px"></div>
+    <div class="g2">
+      <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">📊</div>Food &amp; Beverage vs Target</div><span class="card-sub" id="tgt-date-lbl">Apr 2026</span></div><div class="chart-wrap"><canvas id="ch-global"></canvas></div></div>
+      <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">📍</div>Area Achievement</div></div><div class="chart-wrap"><canvas id="ch-area"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title"><div class="ci pur">📋</div>Nestlé Channel Detail</div><span class="card-sub" id="nestle-tbl-lbl"></span></div>
+      <div class="tbl-wrap"><table class="tbl" id="nestle-table"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title"><div class="ci mks">📋</div>Area Performance Detail</div></div>
+      <div class="tbl-wrap"><table class="tbl" id="tbl-area"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title"><div class="ci org">🏝️</div>Balian Achievement</div><span class="card-sub">Commission only — not included in target</span></div>
+      <div class="tbl-wrap"><table class="tbl" id="tbl-balian"></table></div>
+    </div>
+  </div>
+
+  <div class="tc" id="tc-so">
+    <div class="g2">
+      <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">💰</div>Revenue by Rep</div><span class="card-sub" id="so-co-lbl"></span></div><div class="chart-wrap"><canvas id="ch-rep"></canvas></div></div>
+      <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci grn">📦</div>Top Products</div></div><div class="chart-wrap"><canvas id="ch-prod"></canvas></div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">🏢</div>Top Customers</div></div><div class="tbl-wrap" style="max-height:300px;overflow-y:auto"><table class="tbl" id="tbl-cust"></table></div></div>
+      <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">🧾</div>All Sales Orders</div><span class="card-sub" id="so-count-lbl"></span></div><div class="tbl-wrap" style="max-height:300px;overflow-y:auto"><table class="tbl" id="tbl-so"></table></div></div>
+    </div>
+  </div>
+
+  <div class="tc" id="tc-delivery">
+    <div class="kpi-strip n5" id="del-kpis" style="margin-bottom:14px"></div>
+    <div class="g2">
+      <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci grn">✅</div>Fulfilment by Area</div></div><div class="chart-wrap"><canvas id="ch-del-area"></canvas></div></div>
+      <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mku">⚠️</div>Issues</div><span class="card-sub" id="del-bs-lbl"></span></div><div class="tbl-wrap" style="max-height:280px;overflow-y:auto"><table class="tbl" id="tbl-bs"></table></div></div>
+    </div>
+    <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">🚚</div>All Deliveries</div><span class="card-sub" id="del-count-lbl"></span></div><div class="tbl-wrap" style="max-height:340px;overflow-y:auto"><table class="tbl" id="tbl-del"></table></div></div>
+  </div>
+
+  <div class="tc" id="tc-reps">
+    <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">👥</div>Sales Rep Performance</div><span class="card-sub" id="reps-lbl"></span></div><div class="tbl-wrap"><table class="tbl" id="tbl-reps"></table></div></div>
+  </div>
+
+  <div class="tc" id="tc-stock">
+    <div class="kpi-strip n4" id="stk-kpis" style="margin-bottom:14px"></div>
+    <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">🏭</div>Stock Levels</div><div class="pills" id="stk-pills"></div></div><div class="sg" id="sg"></div></div>
+  </div>
+
+  <div class="tc" id="tc-alerts">
+    <div id="alerts-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px"></div>
+    <div id="alerts-accordions"></div>
+  </div>
+</div>
+
+<!-- LOAD ORDER: data.js first (defines RAW), then Chart.js via dynamic loader, then app.js runs inside onload -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="data.js"></script>
+<script>
+(function() {
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+  s.onload = function() {
+    var a = document.createElement('script');
+    a.src = 'app.js';
+    document.body.appendChild(a);
+  };
+  document.body.appendChild(s);
+})();
+</script>
+</body>
+</html>
