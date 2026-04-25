@@ -31,9 +31,14 @@ function setDate(d){
 function toggleDateDD(){
   const wrap=document.getElementById('date-dd-wrap');
   const mwrap=document.getElementById('m-date-dd-wrap');
-  const isOpen=wrap&&wrap.classList.contains('open');
+  // Check BOTH wraps for open state (mobile uses mwrap, desktop uses wrap)
+  const isOpen=(wrap&&wrap.classList.contains('open'))||(mwrap&&mwrap.classList.contains('open'));
+  // Close all dropdowns first
   document.querySelectorAll('.date-dd-wrap,.dl-wrap').forEach(w=>w.classList.remove('open'));
-  if(!isOpen){if(wrap)wrap.classList.add('open');if(mwrap)mwrap.classList.add('open');}
+  if(!isOpen){
+    if(wrap)wrap.classList.add('open');
+    if(mwrap)mwrap.classList.add('open');
+  }
 }
 
 // ── Data accessors ──────────────────────────────────────────────
@@ -51,56 +56,23 @@ function getSummary(d){
   return RAW.so_summary[d]||{rev:0,cnt:0,cust_cnt:0,mku_rev:0,mks_rev:0,rep_rev:{},prod_rev:{},cust:{}};
 }
 
-// Aggregate summaries across dates — company-aware
+// Aggregate summaries across dates
 function getAggSummary(){
   const dates=activeDate==='ALL'?RAW.dates:[activeDate];
   const agg={rev:0,cnt:0,rep_rev:{},prod_rev:{},cust:{}};
   const custSet=new Set();
-  const divMap={};RAW.so.forEach(r=>{divMap[r.sales]=r.division;});
-  const div_target=company==='MKU'?'MKU Bali':company==='MKS'?'MKS Bali':null;
-  const passDiv=name=>!div_target||!divMap[name]||divMap[name]===div_target;
-  if(company!=='ALL'&&dates.includes(RAW.latest)){
-    RAW.so.filter(r=>r.division===div_target).forEach(r=>{
-      agg.rev+=r.revenue||0;agg.cnt+=1;
-      agg.rep_rev[r.sales]=(agg.rep_rev[r.sales]||0)+r.revenue;
-      agg.prod_rev[r.product]=(agg.prod_rev[r.product]||0)+r.revenue;
-      if(!agg.cust[r.customer])agg.cust[r.customer]={rev:0,so:0,sales:r.sales,div:r.division};
-      agg.cust[r.customer].rev+=r.revenue;agg.cust[r.customer].so+=1;custSet.add(r.customer);
+  dates.forEach(d=>{
+    const s=getSummary(d);
+    agg.rev+=s.rev||0;
+    agg.cnt+=s.cnt||0;
+    Object.entries(s.rep_rev||{}).forEach(([k,v])=>{agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
+    Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
+    Object.entries(s.cust||{}).forEach(([k,v])=>{
+      if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
+      agg.cust[k].rev+=v.rev;agg.cust[k].so+=v.so;
     });
-    dates.filter(d=>d!==RAW.latest).forEach(d=>{
-      const s=getSummary(d);
-      agg.rev+=company==='MKU'?(s.mku_rev||0):(s.mks_rev||0);
-      Object.entries(s.rep_rev||{}).forEach(([k,v])=>{if(passDiv(k))agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
-      Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
-      Object.entries(s.cust||{}).forEach(([k,v])=>{
-        if(!passDiv(v.sales))return;
-        if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
-        agg.cust[k].rev+=v.rev;agg.cust[k].so+=v.so;custSet.add(k);agg.cnt+=v.so;
-      });
-    });
-  } else {
-    dates.forEach(d=>{
-      const s=getSummary(d);
-      if(company!=='ALL'){
-        agg.rev+=company==='MKU'?(s.mku_rev||0):(s.mks_rev||0);agg.cnt+=s.cnt||0;
-        Object.entries(s.rep_rev||{}).forEach(([k,v])=>{if(passDiv(k))agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
-        Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
-        Object.entries(s.cust||{}).forEach(([k,v])=>{
-          if(!passDiv(v.sales))return;
-          if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
-          agg.cust[k].rev+=v.rev;agg.cust[k].so+=v.so;custSet.add(k);
-        });
-      } else {
-        agg.rev+=s.rev||0;agg.cnt+=s.cnt||0;
-        Object.entries(s.rep_rev||{}).forEach(([k,v])=>{agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
-        Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
-        Object.entries(s.cust||{}).forEach(([k,v])=>{
-          if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
-          agg.cust[k].rev+=v.rev;agg.cust[k].so+=v.so;custSet.add(k);
-        });
-      }
-    });
-  }
+    Object.keys(s.cust||{}).forEach(k=>custSet.add(k));
+  });
   agg.cust_cnt=custSet.size;
   return agg;
 }
@@ -124,21 +96,32 @@ function getDel(){
   return all;
 }
 
-// Delivery stats — company-aware
+// Delivery stats (works for both full and compressed)
 function getDelStats(){
   const dates=activeDate==='ALL'?RAW.dates:[activeDate];
   let tot=0,ful=0,by_area={};
   dates.forEach(d=>{
     const dd=RAW.delivery_by_date[d];if(!dd)return;
     if(isLatest(d)){
-      let rows=[];
-      if(company==='ALL'||company==='MKU')(dd.mku_full||[]).forEach(r=>rows.push({...r,co:'MKU'}));
-      if(company==='ALL'||company==='MKS')(dd.mks_full||[]).forEach(r=>rows.push({...r,co:'MKS'}));
-      tot+=rows.length;ful+=rows.filter(r=>r.ket==='FULFILLED').length;
-      rows.forEach(r=>{const a=(r.area||'All Areas').trim()||'All Areas';if(!by_area[a])by_area[a]={t:0,ok:0};by_area[a].t+=1;if(r.ket==='FULFILLED')by_area[a].ok+=1;});
+      const full=[...(dd.mku_full||[]),...(dd.mks_full||[])];
+      if(company!=='ALL'){
+        const filtered=full.filter(r=>r.co===(company==='MKU'?'MKU':'MKS')||
+          (company==='MKU'&&(dd.mku_full||[]).includes(r))||
+          (company==='MKS'&&(dd.mks_full||[]).includes(r)));
+        // simplified: use summary
+      }
+      tot+=full.length;
+      ful+=full.filter(r=>r.ket==='FULFILLED').length;
+      Object.entries(dd.by_area||{}).forEach(([a,v])=>{
+        if(!by_area[a])by_area[a]={t:0,ok:0};
+        by_area[a].t+=v.t;by_area[a].ok+=v.ok;
+      });
     } else {
       tot+=dd.tot||0;ful+=dd.ful||0;
-      Object.entries(dd.by_area||{}).forEach(([a,v])=>{if(!by_area[a])by_area[a]={t:0,ok:0};by_area[a].t+=v.t;by_area[a].ok+=v.ok;});
+      Object.entries(dd.by_area||{}).forEach(([a,v])=>{
+        if(!by_area[a])by_area[a]={t:0,ok:0};
+        by_area[a].t+=v.t;by_area[a].ok+=v.ok;
+      });
     }
   });
   return{tot,ful,unf:tot-ful,by_area};
@@ -473,11 +456,7 @@ function renderAlerts(){
 }
 
 function tog(id){document.getElementById(id).classList.toggle('open');}
-function toggleDL(){
-  const isOpen=document.querySelector('.dl-wrap.open')!==null;
-  document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));
-  if(!isOpen){document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.add('open'));}
-}
+function toggleDL(){document.getElementById('dl-wrap').classList.toggle('open');}
 document.addEventListener('click',e=>{if(!e.target.closest('.dl-wrap')&&!e.target.closest('.date-dd-wrap')){document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));document.querySelectorAll('.date-dd-wrap').forEach(w=>w.classList.remove('open'));}});
 
 function dlExcel(){
