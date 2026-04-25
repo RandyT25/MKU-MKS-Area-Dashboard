@@ -166,11 +166,24 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
   .sg{grid-template-columns:repeat(2,1fr);}
   #tgt-cats > div{grid-template-columns:1fr 1fr!important;}
   #nestle-cards{grid-template-columns:1fr!important;}
-  /* Tables — scroll inside, never overflow page */
-  .tbl-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch;width:100%;max-width:calc(100vw - 24px);}
-  .tbl{font-size:.62rem;white-space:nowrap;}
-  /* Mobile download menu */
-  #m-dl-wrap .dl-menu{position:fixed!important;top:65px!important;right:8px!important;left:auto!important;min-width:210px;z-index:9999!important;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.2);}
+
+  /* Mobile date menu - fixed below the 2-row topbar */
+  #m-date-dd-menu{
+    position:fixed!important;
+    top:120px!important;
+    left:10px!important;
+    right:10px!important;
+    width:auto!important;
+    max-height:55vh;
+    overflow-y:auto;
+    z-index:9999!important;
+    border-radius:12px;
+    box-shadow:0 8px 32px rgba(0,0,0,.25);
+    background:var(--white);
+    border:1px solid var(--border);
+  }
+  #m-date-dd-wrap.open #m-date-dd-menu{display:block!important;}
+  #m-date-dd-menu .date-dd-item{display:block!important;width:100%!important;}
 }
 @media(max-width:420px){
   .kpi-strip.n6,.kpi-strip.n5,.kpi-strip.n4{grid-template-columns:1fr 1fr;}
