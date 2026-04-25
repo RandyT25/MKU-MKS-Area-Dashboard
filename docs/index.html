@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <style>html{overflow-x:hidden;}body{overflow-x:hidden;}</style>
   <title>MKU & MKS Dashboard — April 2026</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
@@ -43,11 +44,6 @@
       </div>
       <div class="dl-wrap" id="m-dl-wrap">
         <button class="dl-btn" style="padding:6px 10px;font-size:.65rem" onclick="toggleDL()">⬇ <span class="dl-chev">▼</span></button>
-        <div class="dl-menu">
-          <button class="dl-item" onclick="dlPDF()">📄 <div><span>Target vs Achievement</span><span class="dl-sub">Full PDF report</span></div></button>
-          <div class="dl-divider"></div>
-          <button class="dl-item" onclick="dlExcel()">📊 <div><span>Excel — Full Data</span><span class="dl-sub">SO · Delivery · Stock</span></div></button>
-        </div>
       </div>
     </div>
   </div>
