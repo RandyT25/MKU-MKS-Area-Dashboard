@@ -3,7 +3,6 @@
 MKU & MKS Dashboard — Data Pipeline
 Reads 5 Excel files from uploads/, plus DATA_PENCAPAIAN for targets,
 then updates docs/data.js preserving history.
-Also writes docs/data_sales.js — a slim file for the Sales Team App.
 """
 
 import json
@@ -22,7 +21,6 @@ except ImportError:
 REPO_ROOT    = Path(__file__).parent.parent
 UPLOADS_DIR  = REPO_ROOT / "uploads"
 DATA_JS      = REPO_ROOT / "docs" / "data.js"
-DATA_SALES_JS = REPO_ROOT / "docs" / "data_sales.js"
 
 # ── Month sheet name map (Bahasa) ─────────────────────────────────────────────
 MONTH_SHEET = {
@@ -335,7 +333,7 @@ def parse_targets(path, date_str):
         "SRIASIH": "Sriasih",
     }
 
-    # Find the computed area table
+    # Find the computed area table — exact match on "FOOD & BEVERAGES" (not the input label)
     fb_start = None
     for i, r in enumerate(rows):
         c = cell(r, 1)
@@ -344,7 +342,7 @@ def parse_targets(path, date_str):
             break
     area_targets = []
     if fb_start is not None:
-        i = fb_start + 2
+        i = fb_start + 2  # skip 2 header rows
         while i < len(rows):
             r     = rows[i]
             area_raw  = cell(r, 1)
@@ -356,6 +354,7 @@ def parse_targets(path, date_str):
             if area_up in ("GRAND TOTAL", "NESTLE", "BALIAN", "CHANNEL / AREA", "AREA"):
                 break
 
+            # col layout: 3=food_t, 4=bev_t, 6=food_ach, 7=bev_ach
             food_t   = rint(r[3])
             bev_t    = rint(r[4])
             food_ach = rint(r[6])
@@ -394,7 +393,7 @@ def parse_targets(path, date_str):
 
     # ── Balian table ──────────────────────────────────────────────────────────
     balian_start = find_row("BALIAN", col=1)
-    balian_rows = []
+    balian_rows = []  # ordered list to preserve display order
     if balian_start is not None:
         for i in range(balian_start + 2, balian_start + 25):
             if i >= len(rows): break
@@ -403,16 +402,18 @@ def parse_targets(path, date_str):
             sales_raw = cell(r, 2)
             if not area_raw or area_raw.upper() in ("GRAND TOTAL", "AREA", "", "NESTLE", "CHANNEL / AREA"):
                 if area_raw.upper() in ("NESTLE", "CHANNEL / AREA"):
-                    break
+                    break  # stop — we've hit the Nestlé section
                 continue
             ach = fval(r[3])
             sales_n = SALES_NORM_MAP.get(sales_raw.upper(), sales_raw)
 
+            # Map area name — try AREA_NAME_MAP first, fallback to cleaned raw name
             matched = None
             for k, v in AREA_NAME_MAP.items():
                 if k in area_raw.upper():
                     matched = v; break
 
+            # Handle Naughty Nuris rows
             if "NAUGHTY NURIS" in area_raw.upper():
                 if "MADE LUIH" in sales_raw.upper() or "NN MADE" in sales_raw.upper():
                     matched = "NAUGHTY NURIS (SANUR)"
@@ -422,7 +423,7 @@ def parse_targets(path, date_str):
                     sales_n = "Sujana"
 
             if not matched:
-                matched = area_raw.strip()
+                matched = area_raw.strip()  # use raw name as fallback key
 
             balian_rows.append({"area": matched, "sales": sales_n, "ach": rint(ach)})
 
@@ -431,7 +432,7 @@ def parse_targets(path, date_str):
     trows = list(tdf.values)
 
     def get_nestle_target(keyword):
-        col = 2 + (month_idx - 1)
+        col = 3 + (month_idx - 1)  # col 1=CHANNEL, 2=SALES, 3=JAN, 4=FEB, 5=MAR, 6=APR...
         for r in trows:
             c1 = str(r[1]).strip() if r[1] is not None else ""
             if keyword.lower() in c1.lower():
@@ -468,17 +469,25 @@ def parse_targets(path, date_str):
 
 # ── Find upload files ──────────────────────────────────────────────────────────
 def norm_name(filename):
+    """Normalise filename for matching: lowercase, replace spaces with underscores."""
     return filename.lower().replace(" ", "_")
 
 def extract_date(name):
+    """
+    Try to extract a YYYY-MM-DD date from a filename.
+    Handles: 2026-04-21, 21 Apr 2026, 21_Apr_2026, 21Apr2026, etc.
+    """
+    # YYYY-MM-DD
     m = re.search(r"(\d{4})[-_](\d{2})[-_](\d{2})", name)
     if m:
         return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
 
+    # DD-MM-YYYY or DD_MM_YYYY
     m = re.search(r"(\d{2})[-_](\d{2})[-_](\d{4})", name)
     if m:
         return f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
 
+    # DD Mon YYYY (e.g. "21 Apr 2026" or "21_Apr_2026")
     MONTHS = {
         "jan":"01","feb":"02","mar":"03","apr":"04","mei":"05","may":"05",
         "jun":"06","jul":"07","agu":"08","aug":"08","sep":"09",
@@ -502,7 +511,7 @@ def find_uploads():
     date_str = None
 
     for f in files:
-        n = norm_name(f.name)
+        n = norm_name(f.name)  # normalised for matching
 
         if "data_pencapaian" in n:
             pencapaian = f
@@ -517,6 +526,7 @@ def find_uploads():
         elif re.search(r"stok.?mks", n):
             stk_mks = f
 
+        # Delivery files: "MKU ..." or "MKU_..." but NOT Stok_MKU
         elif re.match(r"mku", n) and "stok" not in n:
             del_mku = f
 
@@ -653,40 +663,13 @@ def main():
     if date_str not in raw["dates"]:
         raw["dates"] = sorted(raw["dates"] + [date_str])
 
-    # ── Write data.js (full file for Dashboard) ────────────────────────────────
+    # Write data.js
     print(f"\nWriting docs/data.js...")
     DATA_JS.parent.mkdir(parents=True, exist_ok=True)
     output = "const RAW = " + json.dumps(raw, ensure_ascii=False, separators=(",", ":")) + ";"
     DATA_JS.write_text(output, encoding="utf-8")
     size_kb = DATA_JS.stat().st_size / 1024
     print(f"  ✓ Written ({size_kb:.1f} KB) — dates: {raw['dates']}")
-
-    # ── Write data_sales.js (slim file for Sales Team App) ────────────────────
-    print(f"\nWriting docs/data_sales.js...")
-    sales_data = {
-        "latest": date_str,
-        "month":  raw["month"],
-        "targets_by_date": {
-            date_str: {
-                "targets":      targets_entry["targets"],
-                "area_targets": targets_entry["area_targets"],
-                "nestle_areas": targets_entry["nestle_areas"],
-            }
-        },
-        "stock_by_date": {
-            date_str: {
-                "MKU_full": mku_stock,
-                "MKS_full": mks_stock,
-                "summary":  stk["summary"],
-            }
-        },
-        "so": so_rows,
-    }
-    sales_output = "const RAW = " + json.dumps(sales_data, ensure_ascii=False, separators=(",", ":")) + ";"
-    DATA_SALES_JS.write_text(sales_output, encoding="utf-8")
-    size_sales_kb = DATA_SALES_JS.stat().st_size / 1024
-    print(f"  ✓ Written ({size_sales_kb:.1f} KB) — sales app slim file")
-
     print("\nPipeline complete. ✓")
 
 
