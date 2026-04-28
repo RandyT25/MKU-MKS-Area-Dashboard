@@ -663,6 +663,24 @@ def main():
     if date_str not in raw["dates"]:
         raw["dates"] = sorted(raw["dates"] + [date_str])
 
+
+    # Write data_sales.js (for Sales App — latest day only)
+    DATA_SALES_JS = REPO_ROOT / 'docs' / 'data_sales.js'
+    sales_raw = {
+        'latest':          date_str,
+        'month':           raw['month'],
+        'targets_by_date': {date_str: targets_entry},
+        'stock_by_date':   {date_str: {
+            'MKU_full': mku_stock,
+            'MKS_full': mks_stock,
+            'summary':  stk['summary'],
+        }},
+        'so': so_rows,
+    }
+    sales_output = 'const RAW = ' + json.dumps(sales_raw, ensure_ascii=False, separators=(',', ':')) + ';'
+    DATA_SALES_JS.write_text(sales_output, encoding='utf-8')
+    sales_kb = DATA_SALES_JS.stat().st_size / 1024
+    print(f'  ✓ data_sales.js written ({sales_kb:.1f} KB)')
     # Write data.js
     print(f"\nWriting docs/data.js...")
     DATA_JS.parent.mkdir(parents=True, exist_ok=True)
