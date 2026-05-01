@@ -1,3 +1,16 @@
+// Multi-month compatibility shim
+(function(){
+  if(!RAW.months) return; // already flat structure, nothing to do
+  const activeMonthKey = RAW.latest ? RAW.latest.slice(0,7) : Object.keys(RAW.months)[0];
+  const mo = RAW.months[activeMonthKey] || {};
+  RAW.dates = mo.dates || [];
+  RAW.month = mo.label || '';
+  RAW.so_summary = mo.so_summary || {};
+  RAW.stock_by_date = mo.stock_by_date || {};
+  RAW.delivery_by_date = mo.delivery_by_date || {};
+  RAW.targets_by_date = mo.targets_by_date || {};
+})();
+
 // MKU & MKS Dashboard — app.js (Option C: compressed history)
 
 let company='ALL', stockFilter='all', activeDate=RAW.latest, charts={};
@@ -11,80 +24,22 @@ const isFull=d=>d==='ALL'?true:isLatest(d);
 const COPTS={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8a93b0',font:{family:'Plus Jakarta Sans',size:11},boxWidth:10,padding:14}}},scales:{x:{ticks:{color:'#8a93b0',font:{family:'Plus Jakarta Sans',size:10}},grid:{color:'#f0f2f7'},border:{display:false}},y:{ticks:{color:'#8a93b0',font:{family:'Plus Jakarta Sans',size:10}},grid:{color:'#f0f2f7'},border:{display:false}}}};
 
 function buildDT(){
-  // Get sorted month keys
-  const monthKeys=Object.keys(RAW.months||{}).sort();
-  if(!monthKeys.length)return;
-
-  // Default to latest month
-  if(!activeMonth||!RAW.months[activeMonth]){
-    activeMonth=RAW.latest?RAW.latest.slice(0,7):monthKeys[monthKeys.length-1];
-  }
-
-  // Build month dropdown (desktop)
-  const mMenu=document.getElementById('month-dd-menu');
-  const mLbl=document.getElementById('month-dd-lbl');
-  const mMenuM=document.getElementById('m-month-dd-menu');
-  const mLblM=document.getElementById('m-month-dd-lbl');
-
-  if(mMenu){
-    mMenu.innerHTML=monthKeys.map(k=>{
-      const mo=RAW.months[k];
-      const isActive=k===activeMonth;
-      return `<button class="date-dd-item${isActive?' active':''}" onclick="setMonth('${k}')">`+
-        `<span class="ddi-dot"></span>${mo.label}</button>`;
-    }).join('');
-  }
-  if(mMenuM) mMenuM.innerHTML=mMenu?mMenu.innerHTML:'';
-  if(mLbl) mLbl.textContent='📅 '+(RAW.months[activeMonth]?.label||activeMonth);
-  if(mLblM) mLblM.textContent='📅 '+(RAW.months[activeMonth]?.label||activeMonth);
-
-  // Build date dropdown for active month
-  const mo=RAW.months[activeMonth];
-  if(!mo)return;
-  const dates=mo.dates||[];
-  const latest=RAW.latest;
-
-  const makeItems=()=>['ALL',...dates].map(d=>{
-    const isLatestD=d===latest;
-    const lbl=d==='ALL'?'All Days':fmtD(d)+(isLatestD?' ★':'');
-    const isActive=d===activeDate;
-    return `<button class="date-dd-item${isActive?' active':''}" onclick="setDate('${d}')">`+
-      `<span class="ddi-dot"></span>${lbl}</button>`;
+  const lbl=activeDate==='ALL'?'📅 All Days':'📅 '+fmtD(activeDate);
+  const mlbl=activeDate==='ALL'?'📅 All':'📅 '+fmtD(activeDate);
+  const lbl_el=document.getElementById('date-dd-lbl');if(lbl_el)lbl_el.textContent=lbl;
+  const mlbl_el=document.getElementById('m-date-dd-lbl');if(mlbl_el)mlbl_el.textContent=mlbl;
+  const items=['ALL',...RAW.dates].map(d=>{
+    const label=d==='ALL'?'All Days':fmtD(d)+(isLatest(d)?' ★':'');
+    return`<button class="date-dd-item ${activeDate===d?'active':''}" onclick="setDate('${d}')"><span class="ddi-dot"></span>${label}</button>`;
   }).join('');
-
-  const menu=document.getElementById('date-dd-menu');
-  const menuM=document.getElementById('m-date-dd-menu');
-  const lbl=document.getElementById('date-dd-lbl');
-  const lblM=document.getElementById('m-date-dd-lbl');
-  if(menu) menu.innerHTML=makeItems();
-  if(menuM) menuM.innerHTML=makeItems();
-
-  const activeLbl=activeDate==='ALL'?'📅 All Days':'📅 '+fmtD(activeDate)+(activeDate===latest?' ★':'');
-  if(lbl) lbl.textContent=activeLbl;
-  if(lblM) lblM.textContent=activeLbl.replace('📅 ','📅 ');
+  ['date-dd-menu','m-date-dd-menu'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.innerHTML=items;
+  });
 }
-
-function setMonth(key){
-  activeMonth=key;
-  activeDate='ALL';  // reset to all days when switching month
-  document.querySelectorAll('.date-dd-wrap,.dl-wrap,.month-dd-wrap').forEach(w=>w.classList.remove('open'));
-  buildDT();
-  renderAll();
-}
-
-
 function setDate(d){
   activeDate=d;
   document.querySelectorAll('.date-dd-wrap').forEach(w=>w.classList.remove('open'));
-  activeMonth=RAW.latest?RAW.latest.slice(0,7):Object.keys(RAW.months||{})[0]||'';
   buildDT();renderAll();
-}
-function toggleMonthDD(){
-  const wrap=document.getElementById('month-dd-wrap');
-  const mwrap=document.getElementById('m-month-dd-wrap');
-  const isOpen=(wrap&&wrap.classList.contains('open'))||(mwrap&&mwrap.classList.contains('open'));
-  document.querySelectorAll('.date-dd-wrap,.dl-wrap,.month-dd-wrap').forEach(w=>w.classList.remove('open'));
-  if(!isOpen){if(wrap)wrap.classList.add('open');if(mwrap)mwrap.classList.add('open');}
 }
 function toggleDateDD(){
   const wrap=document.getElementById('date-dd-wrap');
@@ -106,14 +61,12 @@ function getSO(){
 
 // Returns summary for a single date (always available)
 function getSummary(d){
-  const mo=RAW.months[activeMonth]||{};
-  return (mo.so_summary||{})[d]||{rev:0,cnt:0,cust_cnt:0,mku_rev:0,mks_rev:0,rep_rev:{},prod_rev:{},cust:{}};
+  return RAW.so_summary[d]||{rev:0,cnt:0,cust_cnt:0,mku_rev:0,mks_rev:0,rep_rev:{},prod_rev:{},cust:{}};
 }
 
 // Aggregate summaries — company-aware
 function getAggSummary(){
-  const mo=RAW.months[activeMonth]||{};
-  const dates=activeDate==='ALL'?(mo.dates||[]):[activeDate];
+  const dates=activeDate==='ALL'?RAW.dates:[activeDate];
   const agg={rev:0,cnt:0,rep_rev:{},prod_rev:{},cust:{}};
   const custSet=new Set();
   const divMap={};RAW.so.forEach(r=>{divMap[r.sales]=r.division;});
@@ -166,8 +119,7 @@ function getAggSummary(){
 }
 
 function getDel(){
-  const mo=RAW.months[activeMonth]||{};
-  const dates=activeDate==='ALL'?(mo.dates||[]):[activeDate];
+  const dates=activeDate==='ALL'?RAW.dates:[activeDate];
   let all=[];
   dates.forEach(d=>{
     const dd=RAW.delivery_by_date[d];if(!dd)return;
@@ -187,12 +139,10 @@ function getDel(){
 
 // Delivery stats — company-aware
 function getDelStats(){
-  const mo=RAW.months[activeMonth]||{};
-  const moDates=(mo.dates||[]);
-  const dates=activeDate==='ALL'?moDates:[activeDate];
+  const dates=activeDate==='ALL'?RAW.dates:[activeDate];
   let tot=0,ful=0,by_area={};
   dates.forEach(d=>{
-    const dd=(mo.delivery_by_date||{})[d];if(!dd)return;
+    const dd=RAW.delivery_by_date[d];if(!dd)return;
     if(isLatest(d)){
       let rows=[];
       if(company==='ALL'||company==='MKU')(dd.mku_full||[]).forEach(r=>rows.push({...r,co:'MKU'}));
@@ -208,9 +158,8 @@ function getDelStats(){
 }
 
 function getStk(){
-  const mo=RAW.months[activeMonth]||{};
   const date=activeDate==='ALL'?RAW.latest:activeDate;
-  const sd=(mo.stock_by_date||{})[date];if(!sd)return[];
+  const sd=RAW.stock_by_date[date];if(!sd)return[];
   // Latest day has full lists
   if(isLatest(date)){
     const mku=sd.MKU_full||sd.MKU||sd.mku||[];
@@ -233,10 +182,8 @@ function getStkSummary(){
 }
 
 function getTgt(){
-  const mo=RAW.months[activeMonth]||{};
-  const tbd=mo.targets_by_date||{};
   const date=activeDate==='ALL'?RAW.latest:activeDate;
-  return tbd[date]||tbd[RAW.latest]||{};
+  return RAW.targets_by_date[date]||RAW.targets_by_date[RAW.latest];
 }
 
 // ── UI ──────────────────────────────────────────────────────────
@@ -540,7 +487,7 @@ function renderAlerts(){
 
 function tog(id){document.getElementById(id).classList.toggle('open');}
 function toggleDL(){const isOpen=document.querySelector('.dl-wrap.open')!==null;document.querySelectorAll('.dl-wrap,.date-dd-wrap').forEach(w=>w.classList.remove('open'));if(!isOpen)document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.add('open'));}
-document.addEventListener('click',e=>{if(!e.target.closest('.dl-wrap')&&!e.target.closest('.date-dd-wrap')&&!e.target.closest('.month-dd-wrap')){document.querySelectorAll('.dl-wrap,.date-dd-wrap,.month-dd-wrap').forEach(w=>w.classList.remove('open'));}});
+document.addEventListener('click',e=>{if(!e.target.closest('.dl-wrap')&&!e.target.closest('.date-dd-wrap')){document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));document.querySelectorAll('.date-dd-wrap').forEach(w=>w.classList.remove('open'));}});
 
 function dlExcel(){
   if(typeof XLSX==='undefined'){alert('Excel library not loaded. Please refresh the page.');return;}
