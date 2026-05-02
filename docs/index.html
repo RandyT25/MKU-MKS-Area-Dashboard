@@ -161,6 +161,10 @@ function switchMonth(key){
   RAW.dates=mo.dates||[];RAW.month=mo.label||'';
   RAW.so_summary=mo.so_summary||{};RAW.stock_by_date=mo.stock_by_date||{};
   RAW.delivery_by_date=mo.delivery_by_date||{};RAW.targets_by_date=mo.targets_by_date||{};
+  // Set RAW.latest to the last date of this month so getTgt works
+  var moDates=mo.dates||[];
+  RAW.latest=moDates.length?moDates[moDates.length-1]:RAW.latest;
+  // For SO: use so_summary rep_rev for the month, RAW.so stays as full rows for latest real day
   if(typeof activeDate!=='undefined')activeDate='ALL';
   document.querySelectorAll('.month-dd-wrap,.date-dd-wrap,.dl-wrap').forEach(function(w){w.classList.remove('open');});
   buildMonthMenu();
