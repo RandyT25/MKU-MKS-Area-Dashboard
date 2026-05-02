@@ -186,6 +186,7 @@ document.addEventListener('click',function(e){
   s.onload = function() {
     var a = document.createElement('script');
     a.src = 'app.js';
+    a.onload = function(){ if(typeof buildMonthMenu==='function') buildMonthMenu(); };
     document.body.appendChild(a);
   };
   document.body.appendChild(s);
