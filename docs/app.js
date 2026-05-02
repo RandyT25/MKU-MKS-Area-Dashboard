@@ -1,3 +1,16 @@
+// Multi-month shim - runs before anything else
+(function(){
+  if(!RAW.months) return;
+  var key = RAW.latest ? RAW.latest.slice(0,7) : Object.keys(RAW.months).sort().pop();
+  var mo = RAW.months[key] || {};
+  RAW.dates = mo.dates || [];
+  RAW.month = mo.label || '';
+  RAW.so_summary = mo.so_summary || {};
+  RAW.stock_by_date = mo.stock_by_date || {};
+  RAW.delivery_by_date = mo.delivery_by_date || {};
+  RAW.targets_by_date = mo.targets_by_date || {};
+})();
+
 // MKU & MKS Dashboard — app.js (Option C: compressed history)
 
 let company='ALL', stockFilter='all', activeDate=RAW.latest, charts={};

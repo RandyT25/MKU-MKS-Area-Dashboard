@@ -7,13 +7,12 @@
   <title>MKU & MKS Dashboard — April 2026</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-<style>.month-dd-wrap.open .date-dd-menu{display:block;}.month-dd-wrap .date-dd-menu{z-index:400;}</style>
 </head>
 <body>
 <div class="topbar">
   <div class="logo"><span class="mku">MKU</span> <span style="color:var(--txt3)">&</span> <span class="mks">MKS</span> <span style="font-family:Plus Jakarta Sans;font-size:.65rem;font-weight:500;color:var(--txt3)">Area Dashboard</span></div>
   <div class="vdiv"></div>
-  <div class="month-dd-wrap" id="month-dd-wrap-d" style="position:relative;flex-shrink:0"><button class="date-dd-btn" onclick="toggleMonthDD()"><span id="month-chip">📅 April 2026</span> <span class="dl-chev">▼</span></button><div class="date-dd-menu" id="month-dd-menu" style="min-width:160px"></div></div>
+  <div class="month-dd-wrap" id="mw-d" style="position:relative;flex-shrink:0"><button class="date-dd-btn" onclick="toggleMonthDD()"><span id="month-chip">Apr 2026</span> <span class="dl-chev">&#9660;</span></button><div class="date-dd-menu" id="month-dd-menu"></div></div>
   <div class="date-dd-wrap" id="date-dd-wrap"><button class="date-dd-btn" id="date-dd-btn" onclick="toggleDateDD()"><span id="date-dd-lbl">📅 All Days</span> <span class="dl-chev" id="date-dd-chev">▼</span></button><div class="date-dd-menu" id="date-dd-menu"></div></div>
   <div class="spacer"></div>
   <div class="co-toggle">
@@ -53,7 +52,7 @@
     </div>
   </div>
   <div class="mtb-r2">
-    <div class="month-dd-wrap" id="month-dd-wrap-m" style="position:relative;flex-shrink:0"><button class="date-dd-btn" onclick="toggleMonthDD()"><span id="m-month-chip">📅 April 2026</span> <span class="dl-chev">▼</span></button><div class="date-dd-menu" id="m-month-dd-menu" style="min-width:160px"></div></div>
+    <div class="month-dd-wrap" id="mw-m" style="position:relative;flex-shrink:0"><button class="date-dd-btn" onclick="toggleMonthDD()"><span id="m-month-chip">Apr 2026</span> <span class="dl-chev">&#9660;</span></button><div class="date-dd-menu" id="m-month-dd-menu"></div></div>
     <div class="date-dd-wrap" id="m-date-dd-wrap"><button class="date-dd-btn" id="m-date-dd-btn" onclick="toggleDateDD()"><span id="m-date-dd-lbl">📅 All</span> <span class="dl-chev" id="m-date-dd-chev">▼</span></button><div class="date-dd-menu" id="m-date-dd-menu"></div></div>
   </div>
 </div>
@@ -141,60 +140,44 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="data.js"></script>
 <script>
-// ── Multi-month support ──────────────────────────────────────────
-var _activeMonthKey = RAW.latest ? RAW.latest.slice(0,7) : Object.keys(RAW.months||{}).sort().pop();
-
-function _loadMonth(key){
-  if(!RAW.months) return;
-  _activeMonthKey = key;
-  var mo = RAW.months[key] || {};
-  RAW.dates = mo.dates || [];
-  RAW.month = mo.label || '';
-  RAW.so_summary = mo.so_summary || {};
-  RAW.stock_by_date = mo.stock_by_date || {};
-  RAW.delivery_by_date = mo.delivery_by_date || {};
-  RAW.targets_by_date = mo.targets_by_date || {};
-}
-
+var _mk = RAW.latest ? RAW.latest.slice(0,7) : Object.keys(RAW.months||{}).sort().pop();
 function buildMonthMenu(){
   if(!RAW.months) return;
-  var keys = Object.keys(RAW.months).sort().reverse();
-  var items = keys.map(function(k){
-    var active = k===_activeMonthKey;
-    return '<button class="date-dd-item" onclick="switchMonth(''+k+'')" style="'+(active?'color:var(--mks);font-weight:700':'')+'"><span class="ddi-dot" style="background:'+(active?'var(--mks)':'')+'"></span>'+RAW.months[k].label+'</button>';
+  var keys=Object.keys(RAW.months).sort().reverse();
+  var html=keys.map(function(k){
+    var a=k===_mk;
+    return '<button class="date-dd-item" onclick="switchMonth(this.dataset.k)" data-k="'+k+'">'
+      +'<span class="ddi-dot" style="background:'+(a?'var(--mks)':'var(--border2)')+'"></span>'
+      +(RAW.months[k].label||k)+'</button>';
   }).join('');
-  ['month-dd-menu','m-month-dd-menu'].forEach(function(id){
-    var el=document.getElementById(id); if(el) el.innerHTML=items;
-  });
-  var lbl = '📅 ' + (RAW.months[_activeMonthKey] ? RAW.months[_activeMonthKey].label : _activeMonthKey);
-  var chip=document.getElementById('month-chip'); if(chip) chip.textContent=lbl;
-  var mchip=document.getElementById('m-month-chip'); if(mchip) mchip.textContent=lbl;
+  ['month-dd-menu','m-month-dd-menu'].forEach(function(id){var e=document.getElementById(id);if(e)e.innerHTML=html;});
+  var lbl=(RAW.months[_mk]&&RAW.months[_mk].label)||_mk;
+  var c=document.getElementById('month-chip');if(c)c.textContent=lbl;
+  var cm=document.getElementById('m-month-chip');if(cm)cm.textContent=lbl;
 }
-
 function switchMonth(key){
-  _loadMonth(key);
-  if(typeof activeDate !== 'undefined') activeDate = 'ALL';
+  _mk=key;
+  var mo=RAW.months[key]||{};
+  RAW.dates=mo.dates||[];RAW.month=mo.label||'';
+  RAW.so_summary=mo.so_summary||{};RAW.stock_by_date=mo.stock_by_date||{};
+  RAW.delivery_by_date=mo.delivery_by_date||{};RAW.targets_by_date=mo.targets_by_date||{};
+  if(typeof activeDate!=='undefined')activeDate='ALL';
   document.querySelectorAll('.month-dd-wrap,.date-dd-wrap,.dl-wrap').forEach(function(w){w.classList.remove('open');});
   buildMonthMenu();
-  if(typeof buildDT==='function') buildDT();
-  if(typeof renderAll==='function') renderAll();
+  if(typeof buildDT==='function')buildDT();
+  if(typeof renderAll==='function')renderAll();
 }
-
 function toggleMonthDD(){
-  var isOpen = document.querySelector('.month-dd-wrap.open') !== null;
+  var open=document.querySelector('.month-dd-wrap.open');
   document.querySelectorAll('.month-dd-wrap,.date-dd-wrap,.dl-wrap').forEach(function(w){w.classList.remove('open');});
-  if(!isOpen) document.querySelectorAll('.month-dd-wrap').forEach(function(w){w.classList.add('open');});
+  if(!open)document.querySelectorAll('.month-dd-wrap').forEach(function(w){w.classList.add('open');});
 }
-
-document.addEventListener('click', function(e){
-  if(!e.target.closest('.month-dd-wrap')) {
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.month-dd-wrap'))
     document.querySelectorAll('.month-dd-wrap').forEach(function(w){w.classList.remove('open');});
-  }
 });
-
-// Load latest month immediately
-_loadMonth(_activeMonthKey);
 </script>
+<style>.month-dd-wrap.open .date-dd-menu{display:block;}</style>
 
 <script>
 (function() {
