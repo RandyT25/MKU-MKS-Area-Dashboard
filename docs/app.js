@@ -1,58 +1,4 @@
-// Multi-month support
-let _activeMonthKey = RAW.latest ? RAW.latest.slice(0,7) : Object.keys(RAW.months||{}).sort().pop();
-
-function _loadMonth(key){
-  if(!RAW.months) return;
-  _activeMonthKey = key;
-  const mo = RAW.months[key] || {};
-  RAW.dates = mo.dates || [];
-  RAW.month = mo.label || '';
-  RAW.so_summary = mo.so_summary || {};
-  RAW.stock_by_date = mo.stock_by_date || {};
-  RAW.delivery_by_date = mo.delivery_by_date || {};
-  RAW.targets_by_date = mo.targets_by_date || {};
-}
-
-function switchMonth(key){
-  _loadMonth(key);
-  activeDate = 'ALL';
-  document.querySelectorAll('.date-dd-wrap,.dl-wrap').forEach(w=>w.classList.remove('open'));
-  buildDT();
-  renderAll();
-  // Update month chip labels
-  ['month-chip','m-month-chip'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.textContent='📅 '+(RAW.month||key);
-  });
-  // Update month menu active state
-  document.querySelectorAll('.month-dd-item').forEach(btn=>{
-    btn.classList.toggle('active', btn.dataset.key===key);
-    btn.querySelector('.ddi-dot').style.background = btn.dataset.key===key ? 'var(--mks)' : '';
-  });
-  // Close month menu
-  document.querySelectorAll('.month-dd-wrap').forEach(w=>w.classList.remove('open'));
-}
-
-function toggleMonthDD(){
-  const isOpen=document.querySelector('.month-dd-wrap.open')!==null;
-  document.querySelectorAll('.date-dd-wrap,.dl-wrap,.month-dd-wrap').forEach(w=>w.classList.remove('open'));
-  if(!isOpen) document.querySelectorAll('.month-dd-wrap').forEach(w=>w.classList.add('open'));
-}
-
-function buildMonthMenu(){
-  if(!RAW.months) return;
-  const keys=Object.keys(RAW.months).sort();
-  const items=keys.map(k=>`<button class="date-dd-item month-dd-item${k===_activeMonthKey?' active':''}" data-key="${k}" onclick="switchMonth('${k}')"><span class="ddi-dot"${k===_activeMonthKey?' style="background:var(--mks)"':''}></span>${RAW.months[k].label}</button>`).join('');
-  ['month-dd-menu','m-month-dd-menu'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.innerHTML=items;
-  });
-  ['month-chip','m-month-chip'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.textContent='📅 '+(RAW.month||_activeMonthKey);
-  });
-}
-
-// Load latest month on startup
-_loadMonth(_activeMonthKey);
+// MKU & MKS Dashboard — app.js (Option C: compressed history)
 
 let company='ALL', stockFilter='all', activeDate=RAW.latest, charts={};
 
@@ -80,7 +26,7 @@ function buildDT(){
 function setDate(d){
   activeDate=d;
   document.querySelectorAll('.date-dd-wrap').forEach(w=>w.classList.remove('open'));
-  buildMonthMenu();buildDT();renderAll();
+  if(typeof buildMonthMenu==="function")buildMonthMenu();buildDT();renderAll();
 }
 function toggleDateDD(){
   const wrap=document.getElementById('date-dd-wrap');
@@ -528,7 +474,7 @@ function renderAlerts(){
 
 function tog(id){document.getElementById(id).classList.toggle('open');}
 function toggleDL(){const isOpen=document.querySelector('.dl-wrap.open')!==null;document.querySelectorAll('.dl-wrap,.date-dd-wrap').forEach(w=>w.classList.remove('open'));if(!isOpen)document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.add('open'));}
-document.addEventListener('click',e=>{if(!e.target.closest('.dl-wrap')&&!e.target.closest('.date-dd-wrap')&&!e.target.closest('.month-dd-wrap')){document.querySelectorAll('.dl-wrap,.date-dd-wrap,.month-dd-wrap').forEach(w=>w.classList.remove('open'));}});
+document.addEventListener('click',e=>{if(!e.target.closest('.dl-wrap')&&!e.target.closest('.date-dd-wrap')){document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));document.querySelectorAll('.date-dd-wrap').forEach(w=>w.classList.remove('open'));}});
 
 function dlExcel(){
   if(typeof XLSX==='undefined'){alert('Excel library not loaded. Please refresh the page.');return;}
