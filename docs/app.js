@@ -1,4 +1,4 @@
-// Multi-month shim - runs before anything else
+// Multi-month shim
 (function(){
   if(!RAW.months) return;
   var key = RAW.latest ? RAW.latest.slice(0,7) : Object.keys(RAW.months).sort().pop();
@@ -182,8 +182,10 @@ function getStkSummary(){
 }
 
 function getTgt(){
+  const tbd=RAW.targets_by_date||{};
   const date=activeDate==='ALL'?RAW.latest:activeDate;
-  return RAW.targets_by_date[date]||RAW.targets_by_date[RAW.latest];
+  const dates=Object.keys(tbd);
+  return tbd[date]||tbd[RAW.latest]||tbd[dates[dates.length-1]]||{targets:{FOOD:{target:0,achievement:0},BEVERAGE:{target:0,achievement:0},NESTLE:{target:0,achievement:0}},nestle_areas:[],area_targets:[],balian:[]};
 }
 
 // ── UI ──────────────────────────────────────────────────────────
