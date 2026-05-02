@@ -1,8 +1,8 @@
 // Multi-month compatibility shim
 (function(){
-  if(!RAW.months) return; // already flat structure, nothing to do
-  const activeMonthKey = RAW.latest ? RAW.latest.slice(0,7) : Object.keys(RAW.months)[0];
-  const mo = RAW.months[activeMonthKey] || {};
+  if(!RAW.months) return;
+  const key = RAW.latest ? RAW.latest.slice(0,7) : Object.keys(RAW.months).sort().pop();
+  const mo = RAW.months[key] || {};
   RAW.dates = mo.dates || [];
   RAW.month = mo.label || '';
   RAW.so_summary = mo.so_summary || {};
