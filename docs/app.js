@@ -1,16 +1,3 @@
-// Multi-month shim
-(function(){
-  if(!RAW.months) return;
-  var key = RAW.latest ? RAW.latest.slice(0,7) : Object.keys(RAW.months).sort().pop();
-  var mo = RAW.months[key] || {};
-  RAW.dates = mo.dates || [];
-  RAW.month = mo.label || '';
-  RAW.so_summary = mo.so_summary || {};
-  RAW.stock_by_date = mo.stock_by_date || {};
-  RAW.delivery_by_date = mo.delivery_by_date || {};
-  RAW.targets_by_date = mo.targets_by_date || {};
-})();
-
 // MKU & MKS Dashboard — app.js (Option C: compressed history)
 
 let company='ALL', stockFilter='all', activeDate=RAW.latest, charts={};
@@ -39,7 +26,7 @@ function buildDT(){
 function setDate(d){
   activeDate=d;
   document.querySelectorAll('.date-dd-wrap').forEach(w=>w.classList.remove('open'));
-  if(typeof buildMonthMenu==="function")buildMonthMenu();buildDT();renderAll();
+  buildDT();renderAll();
 }
 function toggleDateDD(){
   const wrap=document.getElementById('date-dd-wrap');
@@ -182,10 +169,8 @@ function getStkSummary(){
 }
 
 function getTgt(){
-  const tbd=RAW.targets_by_date||{};
   const date=activeDate==='ALL'?RAW.latest:activeDate;
-  const dates=Object.keys(tbd);
-  return tbd[date]||tbd[RAW.latest]||tbd[dates[dates.length-1]]||{targets:{FOOD:{target:0,achievement:0},BEVERAGE:{target:0,achievement:0},NESTLE:{target:0,achievement:0}},nestle_areas:[],area_targets:[],balian:[]};
+  return RAW.targets_by_date[date]||RAW.targets_by_date[RAW.latest];
 }
 
 // ── UI ──────────────────────────────────────────────────────────
@@ -547,7 +532,7 @@ function dlPDF(){
   <div class="kpi" style="border-left-color:#2563eb"><div class="kl">Total Revenue</div><div class="kv" style="color:#2563eb">${fmtRp(agg.rev)}</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">${agg.cnt} orders · ${agg.cust_cnt} customers</div></div>
   <div class="kpi" style="border-left-color:#059669"><div class="kl">Monthly Target</div><div class="kv" style="color:${colP(tp)}">${tp}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">${fmtRp(tot_a)} / ${fmtRp(tot_t)}</div></div>
   <div class="kpi" style="border-left-color:#7c3aed"><div class="kl">Nestlé Target</div><div class="kv" style="color:${colP(pct(T.NESTLE?.achievement||0,T.NESTLE?.target||1))}">${pct(T.NESTLE?.achievement||0,T.NESTLE?.target||1)}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">${fmtRp(T.NESTLE?.achievement||0)} / ${fmtRp(T.NESTLE?.target||0)}</div></div>
-  <div class="kpi" style="border-left-color:#d97706"><div class="kl">Time Elapsed</div><div class="kv" style="color:#d97706">${timePct}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">Day ${dayNum} of 30 · on-track ≥${timePct}%</div></div>
+  <div class="kpi" style="border-left-color:#d97706"><div class="kl">Time Elapsed</div><div class="kv" style="color:#d97706">${timePct}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">Day ${dayNum} of ${daysInMonth} · on-track ≥${timePct}%</div></div>
 </div>
 <div class="section-title">🎯 Target vs Achievement</div>
 <div class="grand"><div><div style="font-size:.6rem;font-weight:700;color:#2563eb;text-transform:uppercase;margin-bottom:4px">🎯 Grand Total (Food + Bev + Nestlé)</div><div style="font-size:.68rem;color:#4a5472">${fmtRp(tot_a)} achieved of ${fmtRp(tot_t)} target</div></div><div class="grand-pct">${tp}%</div></div>
