@@ -226,7 +226,8 @@ function renderTarget(){
   const cats=Object.keys(T);
   const lastDate=RAW.latest;
   const dayNum=parseInt(lastDate.split('-')[2]);
-  const timePct=Math.round(dayNum/30*100);
+  const daysInMonth=new Date(parseInt(lastDate.split('-')[0]),parseInt(lastDate.split('-')[1]),0).getDate();
+  const timePct=Math.round(dayNum/daysInMonth*100);
   const badgeCls=p=>p>=timePct?'b-grn':p>=(timePct*0.75)?'b-org':'b-red';
 
   document.getElementById('tgt-cats').innerHTML=`
@@ -518,7 +519,8 @@ function dlPDF(){
   const tp=pct(tot_a,tot_t);
   const lastDate=RAW.latest;
   const dayNum=parseInt(lastDate.split('-')[2]);
-  const timePct=Math.round(dayNum/30*100);
+  const daysInMonth=new Date(parseInt(lastDate.split('-')[0]),parseInt(lastDate.split('-')[1]),0).getDate();
+  const timePct=Math.round(dayNum/daysInMonth*100);
   const top5=Object.entries(agg.rep_rev).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const dateLabel=activeDate==='ALL'?'All Days':fmtD(activeDate);
   const colP=p=>p>=timePct?'#059669':p>=(timePct*0.75)?'#d97706':'#dc2626';
