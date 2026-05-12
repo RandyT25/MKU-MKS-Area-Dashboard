@@ -1,3 +1,16 @@
+// Multi-month shim
+(function(){
+  if(!RAW.months) return;
+  var key = RAW.latest ? RAW.latest.slice(0,7) : Object.keys(RAW.months).sort().pop();
+  var mo = RAW.months[key] || {};
+  RAW.dates = mo.dates || [];
+  RAW.month = mo.label || '';
+  RAW.so_summary = mo.so_summary || {};
+  RAW.stock_by_date = mo.stock_by_date || {};
+  RAW.delivery_by_date = mo.delivery_by_date || {};
+  RAW.targets_by_date = mo.targets_by_date || {};
+})();
+
 // MKU & MKS Dashboard — app.js (Option C: compressed history)
 
 let company='ALL', stockFilter='all', activeDate=RAW.latest, charts={};
@@ -519,8 +532,7 @@ function dlPDF(){
   const tp=pct(tot_a,tot_t);
   const lastDate=RAW.latest;
   const dayNum=parseInt(lastDate.split('-')[2]);
-  const daysInMonth=new Date(parseInt(lastDate.split('-')[0]),parseInt(lastDate.split('-')[1]),0).getDate();
-  const timePct=Math.round(dayNum/daysInMonth*100);
+  const timePct=Math.round(dayNum/30*100);
   const top5=Object.entries(agg.rep_rev).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const dateLabel=activeDate==='ALL'?'All Days':fmtD(activeDate);
   const colP=p=>p>=timePct?'#059669':p>=(timePct*0.75)?'#d97706':'#dc2626';
