@@ -1,0 +1,46 @@
+name: Update History Data
+
+on:
+  push:
+    paths:
+      - "uploads/data_penjualan_global*.xlsx"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pandas openpyxl
+
+      - name: Run history pipeline
+        run: python pipeline/update_history.py
+
+      - name: Commit and push customers.js
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/customers.js
+          if git diff --staged --quiet; then
+            echo "No changes — skipping commit."
+          else
+            git commit -m "Auto-update customers.js [skip ci]"
+            git push
+            echo "✓ customers.js committed."
+          fi
