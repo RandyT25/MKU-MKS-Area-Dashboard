@@ -12,7 +12,7 @@
 <div class="topbar">
   <div class="logo"><span class="mku">MKU</span> <span style="color:var(--txt3)">&</span> <span class="mks">MKS</span> <span style="font-family:Plus Jakarta Sans;font-size:.65rem;font-weight:500;color:var(--txt3)">Area Dashboard</span></div>
   <div class="vdiv"></div>
-  <div class="month-dd-wrap" id="month-dd-wrap-d" style="position:relative;flex-shrink:0"><button class="date-dd-btn" onclick="toggleMonthDD()"><span id="month-chip">📅 Loading...</span> <span class="dl-chev">&#9660;</span></button><div class="date-dd-menu" id="month-dd-menu"></div></div>
+  <div class="month-dd-wrap" id="mw-d" style="position:relative;flex-shrink:0"><button class="date-dd-btn" onclick="toggleMonthDD()"><span id="month-chip">📅 ...</span> <span class="dl-chev">&#9660;</span></button><div class="date-dd-menu" id="month-dd-menu"></div></div>
   <div class="date-dd-wrap" id="date-dd-wrap"><button class="date-dd-btn" id="date-dd-btn" onclick="toggleDateDD()"><span id="date-dd-lbl">📅 All Days</span> <span class="dl-chev" id="date-dd-chev">▼</span></button><div class="date-dd-menu" id="date-dd-menu"></div></div>
   <div class="spacer"></div>
   <div class="co-toggle">
@@ -52,7 +52,7 @@
     </div>
   </div>
   <div class="mtb-r2">
-    <div class="month-dd-wrap" id="month-dd-wrap-m" style="position:relative;flex-shrink:0"><button class="date-dd-btn" onclick="toggleMonthDD()"><span id="m-month-chip">📅 Loading...</span> <span class="dl-chev">&#9660;</span></button><div class="date-dd-menu" id="m-month-dd-menu"></div></div>
+    <div class="month-dd-wrap" id="mw-m" style="position:relative;flex-shrink:0"><button class="date-dd-btn" onclick="toggleMonthDD()"><span id="m-month-chip">📅 ...</span> <span class="dl-chev">&#9660;</span></button><div class="date-dd-menu" id="m-month-dd-menu"></div></div>
     <div class="date-dd-wrap" id="m-date-dd-wrap"><button class="date-dd-btn" id="m-date-dd-btn" onclick="toggleDateDD()"><span id="m-date-dd-lbl">📅 All</span> <span class="dl-chev" id="m-date-dd-chev">▼</span></button><div class="date-dd-menu" id="m-date-dd-menu"></div></div>
   </div>
 </div>
@@ -65,6 +65,7 @@
     <button class="mnav" id="mn-reps" onclick="mobileTab('reps')"><div class="mnav-icon">👥</div><div class="mnav-lbl">Reps</div></button>
     <button class="mnav" id="mn-stock" onclick="mobileTab('stock')"><div class="mnav-icon">🏭</div><div class="mnav-lbl">Stock</div></button>
     <button class="mnav" id="mn-alerts" onclick="mobileTab('alerts')"><div class="mnav-icon">🔔</div><div class="mnav-lbl">Alerts</div></button>
+    <button class="mnav" id="mn-biz" onclick="mobileTabBiz()"><div class="mnav-icon">📊</div><div class="mnav-lbl">Business</div></button>
   </div>
 </div>
 
@@ -79,10 +80,12 @@
     <button class="tab" onclick="switchTab('reps')">👥 Sales Reps</button>
     <button class="tab" onclick="switchTab('stock')">🏭 Stock</button>
     <button class="tab" onclick="switchTab('alerts')">🔔 Alerts</button>
+    <button class="tab" onclick="switchTabBiz()">📊 Business</button>
   </div>
 
   <div class="tc active" id="tc-target">
     <div id="tgt-cats" style="margin-bottom:14px"></div>
+    <div id="mom-trend"></div>
     <div class="g2">
       <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">📊</div>Food &amp; Beverage vs Target</div><span class="card-sub" id="tgt-date-lbl">Apr 2026</span></div><div class="chart-wrap"><canvas id="ch-global"></canvas></div></div>
       <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">📍</div>Area Achievement</div></div><div class="chart-wrap"><canvas id="ch-area"></canvas></div></div>
@@ -134,68 +137,50 @@
     <div id="alerts-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px"></div>
     <div id="alerts-accordions"></div>
   </div>
+  <div class="tc" id="tc-biz">
+    <div id="biz-area" style="margin-bottom:14px"></div>
+    <div id="biz-seg" style="margin-bottom:14px"></div>
+    <div id="biz-cust"></div>
+  </div>
+
 </div>
 
 <!-- LOAD ORDER: data.js first (defines RAW), then Chart.js via dynamic loader, then app.js runs inside onload -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="data.js"></script>
 <script>
-// Multi-month support
-var _mk = RAW.latest ? RAW.latest.slice(0,7) : Object.keys(RAW.months||{}).sort().pop();
-
+var _mk=RAW.latest?RAW.latest.slice(0,7):Object.keys(RAW.months||{}).sort().pop();
 function _applyMonth(key){
-  if(!RAW.months) return;
-  _mk = key;
-  var mo = RAW.months[key] || {};
-  RAW.dates = mo.dates || [];
-  RAW.month = mo.label || '';
-  RAW.so_summary = mo.so_summary || {};
-  RAW.stock_by_date = mo.stock_by_date || {};
-  RAW.delivery_by_date = mo.delivery_by_date || {};
-  RAW.targets_by_date = mo.targets_by_date || {};
-  // Update RAW.latest to last date of selected month
-  var d = mo.dates || [];
-  RAW.latest = d.length ? d[d.length-1] : RAW.latest;
+  if(!RAW.months)return;_mk=key;
+  var mo=RAW.months[key]||{};
+  RAW.dates=mo.dates||[];RAW.month=mo.label||'';
+  RAW.so_summary=mo.so_summary||{};RAW.stock_by_date=mo.stock_by_date||{};
+  RAW.delivery_by_date=mo.delivery_by_date||{};RAW.targets_by_date=mo.targets_by_date||{};
+  var d=mo.dates||[];RAW.latest=d.length?d[d.length-1]:RAW.latest;
 }
-
 function buildMonthMenu(){
-  if(!RAW.months) return;
-  var keys = Object.keys(RAW.months).sort().reverse();
-  var items = keys.map(function(k){
-    var a = k===_mk;
-    return '<button class="date-dd-item" onclick="switchMonth(this.dataset.k)" data-k="'+k+'">'
-      +'<span class="ddi-dot" style="background:'+(a?'var(--mks)':'')+';"></span>'
-      +(RAW.months[k].label||k)+'</button>';
-  }).join('');
-  ['month-dd-menu','m-month-dd-menu'].forEach(function(id){
-    var el=document.getElementById(id); if(el) el.innerHTML=items;
-  });
-  var lbl = '📅 '+(RAW.months[_mk]?RAW.months[_mk].label:_mk);
-  var c=document.getElementById('month-chip'); if(c) c.textContent=lbl;
-  var cm=document.getElementById('m-month-chip'); if(cm) cm.textContent=lbl;
+  if(!RAW.months)return;
+  var keys=Object.keys(RAW.months).sort().reverse();
+  var items=keys.map(function(k){var a=k===_mk;return'<button class="date-dd-item" onclick="switchMonth(this.dataset.k)" data-k="'+k+'"><span class="ddi-dot" style="background:'+(a?'var(--mks)':'')+';"></span>'+(RAW.months[k].label||k)+'</button>';}).join('');
+  ['month-dd-menu','m-month-dd-menu'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML=items;});
+  var lbl='📅 '+(RAW.months[_mk]?RAW.months[_mk].label:_mk);
+  var c=document.getElementById('month-chip');if(c)c.textContent=lbl;
+  var cm=document.getElementById('m-month-chip');if(cm)cm.textContent=lbl;
 }
-
 function switchMonth(key){
   _applyMonth(key);
-  if(typeof activeDate!=='undefined') activeDate='ALL';
+  if(typeof activeDate!=='undefined')activeDate='ALL';
   document.querySelectorAll('.month-dd-wrap,.date-dd-wrap,.dl-wrap').forEach(function(w){w.classList.remove('open');});
   buildMonthMenu();
-  if(typeof buildDT==='function') buildDT();
-  if(typeof renderAll==='function') renderAll();
+  if(typeof buildDT==='function')buildDT();
+  if(typeof renderAll==='function')renderAll();
 }
-
 function toggleMonthDD(){
   var open=document.querySelector('.month-dd-wrap.open');
   document.querySelectorAll('.month-dd-wrap,.date-dd-wrap,.dl-wrap').forEach(function(w){w.classList.remove('open');});
-  if(!open) document.querySelectorAll('.month-dd-wrap').forEach(function(w){w.classList.add('open');});
+  if(!open)document.querySelectorAll('.month-dd-wrap').forEach(function(w){w.classList.add('open');});
 }
-
-document.addEventListener('click',function(e){
-  if(!e.target.closest('.month-dd-wrap'))
-    document.querySelectorAll('.month-dd-wrap').forEach(function(w){w.classList.remove('open');});
-});
-
-// Apply latest month on load
+document.addEventListener('click',function(e){if(!e.target.closest('.month-dd-wrap'))document.querySelectorAll('.month-dd-wrap').forEach(function(w){w.classList.remove('open');});});
 _applyMonth(_mk);
 </script>
 <style>.month-dd-wrap.open .date-dd-menu{display:block;}</style>
@@ -205,7 +190,7 @@ _applyMonth(_mk);
   s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
   s.onload = function() {
     var a = document.createElement('script');
-    a.src = 'app.js'; a.onload = function(){ if(typeof buildMonthMenu==='function') buildMonthMenu(); };
+    a.src='app.js';a.onload=function(){if(typeof buildMonthMenu==='function')buildMonthMenu();};
     document.body.appendChild(a);
   };
   document.body.appendChild(s);

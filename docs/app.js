@@ -226,7 +226,8 @@ function renderTarget(){
   const cats=Object.keys(T);
   const lastDate=RAW.latest;
   const dayNum=parseInt(lastDate.split('-')[2]);
-  const timePct=Math.round(dayNum/30*100);
+  const daysInMonth=new Date(parseInt(lastDate.split('-')[0]),parseInt(lastDate.split('-')[1]),0).getDate();
+  const timePct=Math.round(dayNum/daysInMonth*100);
   const badgeCls=p=>p>=timePct?'b-grn':p>=(timePct*0.75)?'b-org':'b-red';
 
   document.getElementById('tgt-cats').innerHTML=`
@@ -355,7 +356,7 @@ function renderDel(){
     <div class="kpi-card c-grn"><div class="kpi-icon grn">✅</div><div class="kpi-label">Total Deliveries</div><div class="kpi-value">${stats.tot}</div><div class="kpi-sub">Dispatched</div></div>
     <div class="kpi-card c-grn"><div class="kpi-icon grn">📦</div><div class="kpi-label">Fulfilled</div><div class="kpi-value grn">${stats.ful}</div><div class="kpi-sub">${pct(stats.ful,stats.tot)}% rate</div></div>
     <div class="kpi-card ${stats.unf>0?'c-mku':'c-grn'}"><div class="kpi-icon ${stats.unf>0?'mku':'grn'}">🚫</div><div class="kpi-label">Unfulfilled</div><div class="kpi-value ${stats.unf>0?'mku':''}">${stats.unf}</div><div class="kpi-sub">Not delivered</div></div>
-    <div class="kpi-card c-gray"><div class="kpi-icon gray">📋</div><div class="kpi-label">Fulfilment Rate</div><div class="kpi-value">${pct(stats.ful,stats.tot)}%</div><div class="kpi-sub">Across all orders</div></div>
+    <div class="kpi-card ${(stats.lost_rev||0)>0?'c-mku':'c-gray'}"><div class="kpi-icon ${(stats.lost_rev||0)>0?'mku':'gray'}">💸</div><div class="kpi-label">Revenue at Risk</div><div class="kpi-value ${(stats.lost_rev||0)>0?'mku':''}" style="font-size:1rem">${fmtRp(stats.lost_rev||0)}</div><div class="kpi-sub">${stats.unf} unfulfilled</div></div>
     <div class="kpi-card c-gray"><div class="kpi-icon gray">🏢</div><div class="kpi-label">Areas Served</div><div class="kpi-value">${Object.keys(stats.by_area).length}</div><div class="kpi-sub">Unique areas</div></div>`;
 
   const aS=Object.entries(stats.by_area).sort((a,b)=>b[1].t-a[1].t);
@@ -518,7 +519,8 @@ function dlPDF(){
   const tp=pct(tot_a,tot_t);
   const lastDate=RAW.latest;
   const dayNum=parseInt(lastDate.split('-')[2]);
-  const timePct=Math.round(dayNum/30*100);
+  const daysInMonth=new Date(parseInt(lastDate.split('-')[0]),parseInt(lastDate.split('-')[1]),0).getDate();
+  const timePct=Math.round(dayNum/daysInMonth*100);
   const top5=Object.entries(agg.rep_rev).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const dateLabel=activeDate==='ALL'?'All Days':fmtD(activeDate);
   const colP=p=>p>=timePct?'#059669':p>=(timePct*0.75)?'#d97706':'#dc2626';
@@ -532,7 +534,7 @@ function dlPDF(){
   <div class="kpi" style="border-left-color:#2563eb"><div class="kl">Total Revenue</div><div class="kv" style="color:#2563eb">${fmtRp(agg.rev)}</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">${agg.cnt} orders · ${agg.cust_cnt} customers</div></div>
   <div class="kpi" style="border-left-color:#059669"><div class="kl">Monthly Target</div><div class="kv" style="color:${colP(tp)}">${tp}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">${fmtRp(tot_a)} / ${fmtRp(tot_t)}</div></div>
   <div class="kpi" style="border-left-color:#7c3aed"><div class="kl">Nestlé Target</div><div class="kv" style="color:${colP(pct(T.NESTLE?.achievement||0,T.NESTLE?.target||1))}">${pct(T.NESTLE?.achievement||0,T.NESTLE?.target||1)}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">${fmtRp(T.NESTLE?.achievement||0)} / ${fmtRp(T.NESTLE?.target||0)}</div></div>
-  <div class="kpi" style="border-left-color:#d97706"><div class="kl">Time Elapsed</div><div class="kv" style="color:#d97706">${timePct}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">Day ${dayNum} of 30 · on-track ≥${timePct}%</div></div>
+  <div class="kpi" style="border-left-color:#d97706"><div class="kl">Time Elapsed</div><div class="kv" style="color:#d97706">${timePct}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">Day ${dayNum} of ${daysInMonth} · on-track ≥${timePct}%</div></div>
 </div>
 <div class="section-title">🎯 Target vs Achievement</div>
 <div class="grand"><div><div style="font-size:.6rem;font-weight:700;color:#2563eb;text-transform:uppercase;margin-bottom:4px">🎯 Grand Total (Food + Bev + Nestlé)</div><div style="font-size:.68rem;color:#4a5472">${fmtRp(tot_a)} achieved of ${fmtRp(tot_t)} target</div></div><div class="grand-pct">${tp}%</div></div>
@@ -557,5 +559,135 @@ function dlPDF(){
   setTimeout(()=>w.print(),800);
   document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));
 }
+
+
+// ── Load customers.js dynamically ─────────────────────────────────────────────
+let CUSTOMERS=null;
+function loadCustomers(cb){
+  if(CUSTOMERS){cb();return;}
+  const s=document.createElement('script');
+  s.src='https://raw.githubusercontent.com/RandyT25/MKU-MKS-Area-Dashboard/main/docs/customers.js';
+  s.onload=function(){CUSTOMERS=window.CUSTOMERS||null;cb();};
+  s.onerror=function(){console.warn('customers.js not loaded');cb();};
+  document.body.appendChild(s);
+}
+
+// ── Month-on-Month run rate ────────────────────────────────────────────────────
+function renderMoM(){
+  const momEl=document.getElementById('mom-trend');
+  if(!momEl||typeof RAW.months==='undefined') return;
+  const monthKeys=Object.keys(RAW.months).sort();
+  const curKey=typeof _mk!=='undefined'?_mk:monthKeys[monthKeys.length-1];
+  const curIdx=monthKeys.indexOf(curKey);
+  if(curIdx<1){momEl.innerHTML='';return;}
+  const prevKey=monthKeys[curIdx-1];
+  const curMo=RAW.months[curKey]||{},prevMo=RAW.months[prevKey]||{};
+  const curDates=curMo.dates||[],prevDates=prevMo.dates||[];
+  const curDN=curDates.length?parseInt(curDates[curDates.length-1].split('-')[2]):1;
+  const prevDN=prevDates.length?parseInt(prevDates[prevDates.length-1].split('-')[2]):1;
+  const curDIM=new Date(parseInt(curKey.split('-')[0]),parseInt(curKey.split('-')[1]),0).getDate();
+  let curRev=0,prevRev=0;
+  Object.values(curMo.so_summary||{}).forEach(s=>curRev+=s.rev||0);
+  Object.values(prevMo.so_summary||{}).forEach(s=>prevRev+=s.rev||0);
+  const curRate=curDN>0?curRev/curDN:0,prevRate=prevDN>0?prevRev/prevDN:0;
+  const rateChg=prevRate>0?Math.round((curRate-prevRate)/prevRate*100):0;
+  const col=rateChg>=0?'var(--grn)':'var(--mku)';
+  momEl.innerHTML=`<div class="card" style="margin-bottom:14px">
+    <div class="card-hdr"><div class="card-title"><div class="ci mks">📈</div>Month-on-Month Run Rate</div><span class="card-sub">${prevMo.label||prevKey} → ${curMo.label||curKey}</span></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px">
+        <div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${prevMo.label||prevKey}</div>
+        <div style="font-size:1rem;font-weight:800">${fmtRp(prevRev)}</div>
+        <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(prevRate)}/day · ${prevDN} days</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px">
+        <div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${curMo.label||curKey} (${curDN} days)</div>
+        <div style="font-size:1rem;font-weight:800">${fmtRp(curRev)}</div>
+        <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px">
+        <div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">Run Rate Change</div>
+        <div style="font-size:1.4rem;font-weight:800;color:${col}">${rateChg>=0?'▲':'▼'} ${Math.abs(rateChg)}%</div>
+        <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day vs ${fmtRp(prevRate)}/day</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:var(--mks-l);border-radius:10px;border:1px solid #c7d8fc">
+        <div style="font-size:.6rem;font-weight:700;color:var(--mks);text-transform:uppercase;margin-bottom:6px">Projected Month-End</div>
+        <div style="font-size:1rem;font-weight:800;color:var(--mks)">${fmtRp(curRate*curDIM)}</div>
+        <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">At current pace · ${curDIM} days</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Business tab ──────────────────────────────────────────────────────────────
+function renderBusiness(){
+  loadCustomers(function(){
+    renderAreaPerf();
+    renderSegments();
+    renderCustomerSearch();
+  });
+}
+
+function renderAreaPerf(){
+  const el=document.getElementById('biz-area');
+  if(!el||!CUSTOMERS)return;
+  const areas=CUSTOMERS.areas||{};
+  const months=CUSTOMERS.months||[];
+  const rows=Object.values(areas).sort((a,b)=>b.total-a.total);
+  // Build table with monthly columns
+  const cols=months.slice(-3); // last 3 months
+  el.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci grn">📍</div>Area Performance — Monthly Revenue</div></div>
+    <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Area</th><th>Division</th>${cols.map(m=>`<th class="num">${m.slice(0,3)}</th>`).join('')}<th class="num">Total</th><th>Trend</th></tr></thead>
+    <tbody>${rows.map(a=>{
+      const vals=cols.map(m=>a.monthly[m]||0);
+      const last=vals[vals.length-1],prev=vals[vals.length-2]||0;
+      const trend=prev>0?Math.round((last-prev)/prev*100):0;
+      const arrow=trend>0?'<span style="color:var(--grn)">▲'+trend+'%</span>':trend<0?'<span style="color:var(--mku)">▼'+Math.abs(trend)+'%</span>':'—';
+      return `<tr><td style="font-weight:600">${a.name}</td><td style="font-size:.65rem;color:var(--txt3)">${(a.division||'').replace(' Bali','')}</td>${vals.map(v=>`<td class="num">${fmtRp(v)}</td>`).join('')}<td class="num" style="font-weight:700">${fmtRp(a.total)}</td><td>${arrow}</td></tr>`;
+    }).join('')}</tbody>
+    </table></div></div>`;
+}
+
+function renderSegments(){
+  const el=document.getElementById('biz-seg');
+  if(!el||!CUSTOMERS)return;
+  const segs=CUSTOMERS.segments||{};
+  const rows=Object.entries(segs).sort((a,b)=>b[1].total-a[1].total);
+  el.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci pur">🏷️</div>Customer Segment Breakdown</div></div>
+    <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Segment</th><th class="num">Customers</th><th class="num">Total Revenue</th><th class="num">% of Total</th></tr></thead>
+    <tbody>${(()=>{const tot=rows.reduce((s,[,v])=>s+v.total,0);return rows.map(([seg,v])=>`<tr><td style="font-weight:600">${seg}</td><td class="num">${v.cust_count}</td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(v.total)}</td><td class="num">${tot>0?Math.round(v.total/tot*100):0}%</td></tr>`).join('');})()}</tbody>
+    </table></div></div>`;
+}
+
+function renderCustomerSearch(q=''){
+  const el=document.getElementById('biz-cust');
+  if(!el||!CUSTOMERS)return;
+  const byRep=CUSTOMERS.by_rep||{};
+  // Flatten all customers
+  let all=[];
+  Object.entries(byRep).forEach(([rep,rd])=>{
+    Object.entries(rd.customers||{}).forEach(([code,c])=>{
+      all.push({code,rep,...c});
+    });
+  });
+  if(q) all=all.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())||c.rep.toLowerCase().includes(q.toLowerCase()));
+  all.sort((a,b)=>b.total-a.total);
+  const top=all.slice(0,50);
+  el.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">👥</div>Customer Profiles</div></div>
+    <div style="margin-bottom:12px"><input type="text" placeholder="Search customer or rep..." oninput="renderCustomerSearch(this.value)" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:.75rem;font-family:inherit">
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Customer</th><th>Rep</th><th>Segment</th><th>Area</th><th class="num">Total Spend</th><th>Last Order</th></tr></thead>
+    <tbody>${top.map(c=>`<tr><td style="font-weight:600;font-size:.7rem">${c.name}</td><td style="font-size:.65rem;color:var(--txt2)">${c.rep}</td><td style="font-size:.63rem">${c.group||'—'}</td><td style="font-size:.63rem;color:var(--txt3)">${c.area||'—'}</td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(c.total)}</td><td style="font-size:.65rem;color:${c.last_month==='May'?'var(--grn)':'var(--org)'}">${c.last_month||'—'}</td></tr>`).join('')}</tbody>
+    </table></div></div>`;
+}
+
+// ── Patch renderAll to include MoM and Business ───────────────────────────────
+const _origRenderAll=renderAll;
+function renderAll(){_origRenderAll();renderMoM();if(document.getElementById('tc-biz')&&document.getElementById('tc-biz').classList.contains('active'))renderBusiness();}
+function switchTabBiz(){switchTab('biz');renderBusiness();}
+function mobileTabBiz(){mobileTab('biz');renderBusiness();}
 
 renderAll();
