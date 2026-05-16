@@ -226,8 +226,7 @@ function renderTarget(){
   const cats=Object.keys(T);
   const lastDate=RAW.latest;
   const dayNum=parseInt(lastDate.split('-')[2]);
-  const daysInMonth=new Date(parseInt(lastDate.split('-')[0]),parseInt(lastDate.split('-')[1]),0).getDate();
-  const timePct=Math.round(dayNum/daysInMonth*100);
+  const timePct=Math.round(dayNum/30*100);
   const badgeCls=p=>p>=timePct?'b-grn':p>=(timePct*0.75)?'b-org':'b-red';
 
   document.getElementById('tgt-cats').innerHTML=`
@@ -356,7 +355,7 @@ function renderDel(){
     <div class="kpi-card c-grn"><div class="kpi-icon grn">✅</div><div class="kpi-label">Total Deliveries</div><div class="kpi-value">${stats.tot}</div><div class="kpi-sub">Dispatched</div></div>
     <div class="kpi-card c-grn"><div class="kpi-icon grn">📦</div><div class="kpi-label">Fulfilled</div><div class="kpi-value grn">${stats.ful}</div><div class="kpi-sub">${pct(stats.ful,stats.tot)}% rate</div></div>
     <div class="kpi-card ${stats.unf>0?'c-mku':'c-grn'}"><div class="kpi-icon ${stats.unf>0?'mku':'grn'}">🚫</div><div class="kpi-label">Unfulfilled</div><div class="kpi-value ${stats.unf>0?'mku':''}">${stats.unf}</div><div class="kpi-sub">Not delivered</div></div>
-    <div class="kpi-card ${stats.unf>0?'c-mku':'c-gray'}"><div class="kpi-icon ${stats.unf>0?'mku':'gray'}">💸</div><div class="kpi-label">Revenue at Risk</div><div class="kpi-value ${stats.unf>0?'mku':''}" style="font-size:1rem">${fmtRp(stats.lost_rev||0)}</div><div class="kpi-sub">From unfulfilled orders</div></div>
+    <div class="kpi-card c-gray"><div class="kpi-icon gray">📋</div><div class="kpi-label">Fulfilment Rate</div><div class="kpi-value">${pct(stats.ful,stats.tot)}%</div><div class="kpi-sub">Across all orders</div></div>
     <div class="kpi-card c-gray"><div class="kpi-icon gray">🏢</div><div class="kpi-label">Areas Served</div><div class="kpi-value">${Object.keys(stats.by_area).length}</div><div class="kpi-sub">Unique areas</div></div>`;
 
   const aS=Object.entries(stats.by_area).sort((a,b)=>b[1].t-a[1].t);
