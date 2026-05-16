@@ -249,57 +249,6 @@ function renderTarget(){
         </div>`;}).join('')}
     </div>`;
 
-  // ── Month-on-Month Run Rate ──────────────────────────────────────────────
-  const momEl=document.getElementById('mom-trend');
-  if(momEl&&typeof RAW.months!=='undefined'){
-    const monthKeys=Object.keys(RAW.months).sort();
-    const curKey=typeof _activeMonthKey!=='undefined'?_activeMonthKey:monthKeys[monthKeys.length-1];
-    const curIdx=monthKeys.indexOf(curKey);
-    if(curIdx>0){
-      const prevKey=monthKeys[curIdx-1];
-      const curMo=RAW.months[curKey]||{};const prevMo=RAW.months[prevKey]||{};
-      const curDates=curMo.dates||[];const prevDates=prevMo.dates||[];
-      const curDayNum=curDates.length?parseInt(curDates[curDates.length-1].split('-')[2]):1;
-      const prevDayNum=prevDates.length?parseInt(prevDates[prevDates.length-1].split('-')[2]):1;
-      const curDIM=new Date(parseInt(curKey.split('-')[0]),parseInt(curKey.split('-')[1]),0).getDate();
-      const prevDIM=new Date(parseInt(prevKey.split('-')[0]),parseInt(prevKey.split('-')[1]),0).getDate();
-      let curRev=0,prevRev=0;
-      Object.values(curMo.so_summary||{}).forEach(s=>curRev+=s.rev||0);
-      Object.values(prevMo.so_summary||{}).forEach(s=>prevRev+=s.rev||0);
-      const curRate=curDayNum>0?curRev/curDayNum:0;
-      const prevRate=prevDayNum>0?prevRev/prevDayNum:0;
-      const rateChg=prevRate>0?Math.round((curRate-prevRate)/prevRate*100):0;
-      const curProjected=curRate*curDIM;
-      const arrow=rateChg>=0?'▲':'▼';
-      const col=rateChg>=0?'var(--grn)':'var(--mku)';
-      momEl.innerHTML=`<div class="card" style="margin-bottom:14px">
-        <div class="card-hdr"><div class="card-title"><div class="ci mks">📈</div>Month-on-Month Run Rate</div><span class="card-sub">${prevMo.label||prevKey} → ${curMo.label||curKey}</span></div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-          <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px">
-            <div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${prevMo.label||prevKey}</div>
-            <div style="font-size:1rem;font-weight:800">${fmtRp(prevRev)}</div>
-            <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(prevRate)}/day · ${prevDayNum} days</div>
-          </div>
-          <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px">
-            <div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${curMo.label||curKey} (${curDayNum} days)</div>
-            <div style="font-size:1rem;font-weight:800">${fmtRp(curRev)}</div>
-            <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day</div>
-          </div>
-          <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px">
-            <div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">Run Rate vs Last Month</div>
-            <div style="font-size:1.4rem;font-weight:800;color:${col}">${arrow} ${Math.abs(rateChg)}%</div>
-            <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day vs ${fmtRp(prevRate)}/day</div>
-          </div>
-          <div style="text-align:center;padding:12px;background:var(--mks-l);border-radius:10px;border:1px solid #c7d8fc">
-            <div style="font-size:.6rem;font-weight:700;color:var(--mks);text-transform:uppercase;margin-bottom:6px">Projected Month-End</div>
-            <div style="font-size:1rem;font-weight:800;color:var(--mks)">${fmtRp(curProjected)}</div>
-            <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">At current pace · ${curDIM} days total</div>
-          </div>
-        </div>
-      </div>`;
-    } else {momEl.innerHTML='';}
-  } else if(momEl){momEl.innerHTML='';}
-
   if(charts.global)charts.global.destroy();
   charts.global=new Chart(document.getElementById('ch-global'),{type:'bar',data:{labels:['Food & Bev'],datasets:[
     {label:'Food Target',data:[T.FOOD?.target||0],backgroundColor:'#c7d8fc',borderRadius:6,stack:'a'},
@@ -403,14 +352,11 @@ function renderDel(){
     return;
   }
 
-  // Calculate lost revenue from unfulfilled
-  const unfItems=del.filter(r=>r.ket==='UNFULFILLED');
-  const lostRev=typeof stats.lost_rev!=='undefined'?stats.lost_rev:0;
   document.getElementById('del-kpis').innerHTML=`
     <div class="kpi-card c-grn"><div class="kpi-icon grn">✅</div><div class="kpi-label">Total Deliveries</div><div class="kpi-value">${stats.tot}</div><div class="kpi-sub">Dispatched</div></div>
     <div class="kpi-card c-grn"><div class="kpi-icon grn">📦</div><div class="kpi-label">Fulfilled</div><div class="kpi-value grn">${stats.ful}</div><div class="kpi-sub">${pct(stats.ful,stats.tot)}% rate</div></div>
     <div class="kpi-card ${stats.unf>0?'c-mku':'c-grn'}"><div class="kpi-icon ${stats.unf>0?'mku':'grn'}">🚫</div><div class="kpi-label">Unfulfilled</div><div class="kpi-value ${stats.unf>0?'mku':''}">${stats.unf}</div><div class="kpi-sub">Not delivered</div></div>
-    <div class="kpi-card ${lostRev>0?'c-mku':'c-gray'}"><div class="kpi-icon ${lostRev>0?'mku':'gray'}">💸</div><div class="kpi-label">Revenue at Risk</div><div class="kpi-value ${lostRev>0?'mku':''}" style="font-size:1rem">${fmtRp(lostRev)}</div><div class="kpi-sub">From unfulfilled orders</div></div>
+    <div class="kpi-card ${stats.unf>0?'c-mku':'c-gray'}"><div class="kpi-icon ${stats.unf>0?'mku':'gray'}">💸</div><div class="kpi-label">Revenue at Risk</div><div class="kpi-value ${stats.unf>0?'mku':''}" style="font-size:1rem">${fmtRp(stats.lost_rev||0)}</div><div class="kpi-sub">From unfulfilled orders</div></div>
     <div class="kpi-card c-gray"><div class="kpi-icon gray">🏢</div><div class="kpi-label">Areas Served</div><div class="kpi-value">${Object.keys(stats.by_area).length}</div><div class="kpi-sub">Unique areas</div></div>`;
 
   const aS=Object.entries(stats.by_area).sort((a,b)=>b[1].t-a[1].t);
