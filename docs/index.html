@@ -12,7 +12,7 @@
 <div class="topbar">
   <div class="logo"><span class="mku">MKU</span> <span style="color:var(--txt3)">&</span> <span class="mks">MKS</span> <span style="font-family:Plus Jakarta Sans;font-size:.65rem;font-weight:500;color:var(--txt3)">Area Dashboard</span></div>
   <div class="vdiv"></div>
-  <div class="month-dd-wrap" id="mw-d" style="position:relative;flex-shrink:0"><button class="date-dd-btn" onclick="toggleMonthDD()"><span id="month-chip">Apr 2026</span> <span class="dl-chev">&#9660;</span></button><div class="date-dd-menu" id="month-dd-menu"></div></div>
+  <div class="date-chip">📅 Apr 2026</div>
   <div class="date-dd-wrap" id="date-dd-wrap"><button class="date-dd-btn" id="date-dd-btn" onclick="toggleDateDD()"><span id="date-dd-lbl">📅 All Days</span> <span class="dl-chev" id="date-dd-chev">▼</span></button><div class="date-dd-menu" id="date-dd-menu"></div></div>
   <div class="spacer"></div>
   <div class="co-toggle">
@@ -52,7 +52,7 @@
     </div>
   </div>
   <div class="mtb-r2">
-    <div class="month-dd-wrap" id="mw-m" style="position:relative;flex-shrink:0"><button class="date-dd-btn" onclick="toggleMonthDD()"><span id="m-month-chip">Apr 2026</span> <span class="dl-chev">&#9660;</span></button><div class="date-dd-menu" id="m-month-dd-menu"></div></div>
+    <div class="date-chip" style="font-size:.63rem">📅 Apr 2026</div>
     <div class="date-dd-wrap" id="m-date-dd-wrap"><button class="date-dd-btn" id="m-date-dd-btn" onclick="toggleDateDD()"><span id="m-date-dd-lbl">📅 All</span> <span class="dl-chev" id="m-date-dd-chev">▼</span></button><div class="date-dd-menu" id="m-date-dd-menu"></div></div>
   </div>
 </div>
@@ -83,6 +83,7 @@
 
   <div class="tc active" id="tc-target">
     <div id="tgt-cats" style="margin-bottom:14px"></div>
+    <div id="mom-trend"></div>
     <div class="g2">
       <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">📊</div>Food &amp; Beverage vs Target</div><span class="card-sub" id="tgt-date-lbl">Apr 2026</span></div><div class="chart-wrap"><canvas id="ch-global"></canvas></div></div>
       <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">📍</div>Area Achievement</div></div><div class="chart-wrap"><canvas id="ch-area"></canvas></div></div>
@@ -140,57 +141,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="data.js"></script>
 <script>
-var _mk = RAW.latest ? RAW.latest.slice(0,7) : Object.keys(RAW.months||{}).sort().pop();
-function buildMonthMenu(){
-  if(!RAW.months) return;
-  var keys=Object.keys(RAW.months).sort().reverse();
-  var html=keys.map(function(k){
-    var a=k===_mk;
-    return '<button class="date-dd-item" onclick="switchMonth(this.dataset.k)" data-k="'+k+'">'
-      +'<span class="ddi-dot" style="background:'+(a?'var(--mks)':'var(--border2)')+'"></span>'
-      +(RAW.months[k].label||k)+'</button>';
-  }).join('');
-  ['month-dd-menu','m-month-dd-menu'].forEach(function(id){var e=document.getElementById(id);if(e)e.innerHTML=html;});
-  var lbl=(RAW.months[_mk]&&RAW.months[_mk].label)||_mk;
-  var c=document.getElementById('month-chip');if(c)c.textContent=lbl;
-  var cm=document.getElementById('m-month-chip');if(cm)cm.textContent=lbl;
-}
-function switchMonth(key){
-  _mk=key;
-  var mo=RAW.months[key]||{};
-  RAW.dates=mo.dates||[];RAW.month=mo.label||'';
-  RAW.so_summary=mo.so_summary||{};RAW.stock_by_date=mo.stock_by_date||{};
-  RAW.delivery_by_date=mo.delivery_by_date||{};RAW.targets_by_date=mo.targets_by_date||{};
-  // Set RAW.latest to the last date of this month so getTgt works
-  var moDates=mo.dates||[];
-  RAW.latest=moDates.length?moDates[moDates.length-1]:RAW.latest;
-  // For SO: use so_summary rep_rev for the month, RAW.so stays as full rows for latest real day
-  if(typeof activeDate!=='undefined')activeDate='ALL';
-  document.querySelectorAll('.month-dd-wrap,.date-dd-wrap,.dl-wrap').forEach(function(w){w.classList.remove('open');});
-  buildMonthMenu();
-  if(typeof buildDT==='function')buildDT();
-  if(typeof renderAll==='function')renderAll();
-}
-function toggleMonthDD(){
-  var open=document.querySelector('.month-dd-wrap.open');
-  document.querySelectorAll('.month-dd-wrap,.date-dd-wrap,.dl-wrap').forEach(function(w){w.classList.remove('open');});
-  if(!open)document.querySelectorAll('.month-dd-wrap').forEach(function(w){w.classList.add('open');});
-}
-document.addEventListener('click',function(e){
-  if(!e.target.closest('.month-dd-wrap'))
-    document.querySelectorAll('.month-dd-wrap').forEach(function(w){w.classList.remove('open');});
-});
-</script>
-<style>.month-dd-wrap.open .date-dd-menu{display:block;}</style>
-
-<script>
 (function() {
   var s = document.createElement('script');
   s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
   s.onload = function() {
     var a = document.createElement('script');
     a.src = 'app.js';
-    a.onload = function(){ if(typeof buildMonthMenu==='function') buildMonthMenu(); };
     document.body.appendChild(a);
   };
   document.body.appendChild(s);
