@@ -83,7 +83,6 @@
 
   <div class="tc active" id="tc-target">
     <div id="tgt-cats" style="margin-bottom:14px"></div>
-    <div id="mom-trend"></div>
     <div class="g2">
       <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">📊</div>Food &amp; Beverage vs Target</div><span class="card-sub" id="tgt-date-lbl">Apr 2026</span></div><div class="chart-wrap"><canvas id="ch-global"></canvas></div></div>
       <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">📍</div>Area Achievement</div></div><div class="chart-wrap"><canvas id="ch-area"></canvas></div></div>
@@ -140,6 +139,20 @@
 <!-- LOAD ORDER: data.js first (defines RAW), then Chart.js via dynamic loader, then app.js runs inside onload -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="data.js"></script>
+<script>
+// Multi-month shim
+(function(){
+  if(!RAW.months) return;
+  var key = RAW.latest ? RAW.latest.slice(0,7) : Object.keys(RAW.months).sort().pop();
+  var mo = RAW.months[key] || {};
+  RAW.dates = mo.dates || [];
+  RAW.month = mo.label || '';
+  RAW.so_summary = mo.so_summary || {};
+  RAW.stock_by_date = mo.stock_by_date || {};
+  RAW.delivery_by_date = mo.delivery_by_date || {};
+  RAW.targets_by_date = mo.targets_by_date || {};
+})();
+</script>
 <script>
 (function() {
   var s = document.createElement('script');
