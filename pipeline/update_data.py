@@ -87,8 +87,10 @@ def compress_del(mku_list,mks_list):
         if a not in by_area: by_area[a]={"t":0,"ok":0}
         by_area[a]["t"]+=1
         if r.get("ket")=="FULFILLED": by_area[a]["ok"]+=1
+    issues=[r for r in all_del if r.get("ket")=="UNFULFILLED"]
     return {"tot":len(all_del),"ful":len([r for r in all_del if r.get("ket")=="FULFILLED"]),
-        "by_area":by_area,"issues":[r for r in all_del if r.get("ket")=="UNFULFILLED"]}
+        "by_area":by_area,"issues":issues,
+        "lost_rev":int(sum(r.get("revenue",0) for r in issues))}
 
 def parse_so(path,date_str):
     df=pd.read_excel(path,sheet_name="Sheet",header=None,skiprows=1)
@@ -128,13 +130,13 @@ def parse_delivery(path):
     for _,row in df.iterrows():
         r=list(row);no_so=r[2]
         if pd.isna(no_so) or str(no_so).strip().lower() in ("","nan","no. so"): continue
-        ket_raw=str(r[11]).strip() if not pd.isna(r[11]) else ""
+        ket_raw=str(r[12]).strip() if not pd.isna(r[12]) else ""
         rows.append({"no_so":str(no_so).strip(),
             "area":str(r[3]).strip() if not pd.isna(r[3]) else "",
             "customer":str(r[4]).strip() if not pd.isna(r[4]) else "",
             "sales":norm_sales(r[5]),"product":str(r[6]).strip() if not pd.isna(r[6]) else "",
             "unit":str(r[9]).strip() if not pd.isna(r[9]) else "",
-            "qty_bs":fval(r[10]),"ket":"UNFULFILLED" if ket_raw.upper().startswith("UN") else "FULFILLED"})
+            "qty_bs":fval(r[11]),"ket":"UNFULFILLED" if ket_raw.upper().startswith("UN") else "FULFILLED"})
     return rows
 
 def parse_targets(path,date_str):
