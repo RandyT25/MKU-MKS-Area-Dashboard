@@ -692,9 +692,8 @@ function loadCustomers(cb){
   document.body.appendChild(s);
 }
 
-// ── Month-on-Month run rate ───────────────────────────────────────
-// FIX: April & May showing same Rp 5B — now reads actual SO revenue
-// per month from so_summary, not from targets achievement
+// ── Month-on-Month run rate (based on targets) ────────────────────
+// Shows: target, achievement, % reached, run rate, projected month-end
 function renderMoM(){
   const momEl=document.getElementById('mom-trend');
   if(!momEl||typeof RAW.months==='undefined')return;
@@ -703,60 +702,89 @@ function renderMoM(){
   const curIdx=monthKeys.indexOf(curKey);
   if(curIdx<1){momEl.innerHTML='';return;}
   const prevKey=monthKeys[curIdx-1];
-  const curMo=RAW.months[curKey]||{},prevMo=RAW.months[prevKey]||{};
-  const curDates=curMo.dates||[],prevDates=prevMo.dates||[];
+  const curMo=RAW.months[curKey]||{};
+  const prevMo=RAW.months[prevKey]||{};
 
-  // Days elapsed = last date in each month
+  // Days elapsed — last date recorded in each month
+  const curDates=curMo.dates||[];
+  const prevDates=prevMo.dates||[];
   const curDN=curDates.length?parseInt(curDates[curDates.length-1].split('-')[2]):1;
   const prevDN=prevDates.length?parseInt(prevDates[prevDates.length-1].split('-')[2]):1;
-  // Total days in each month (for projection)
+  // Total calendar days in each month
   const curDIM=new Date(parseInt(curKey.split('-')[0]),parseInt(curKey.split('-')[1]),0).getDate();
   const prevDIM=new Date(parseInt(prevKey.split('-')[0]),parseInt(prevKey.split('-')[1]),0).getDate();
 
-  // ── FIX: sum SO revenue from so_summary, not targets achievement ─
-  // Also add latest day's RAW.so rows which aren't compressed into so_summary yet
-  let curRev=0,prevRev=0;
-  Object.values(curMo.so_summary||{}).forEach(s=>curRev+=s.rev||0);
-  Object.values(prevMo.so_summary||{}).forEach(s=>prevRev+=s.rev||0);
-  // Latest day rows live in RAW.so (not yet in so_summary) — add them to current month
-  const latestYM=RAW.latest?RAW.latest.slice(0,7):'';
-  if(latestYM===curKey){
-    const latestDayRev=(RAW.so||[]).reduce((s,r)=>s+(r.revenue||0),0);
-    // Only add if not already counted (check if RAW.latest is a key in curMo.so_summary)
-    if(!curMo.so_summary||!curMo.so_summary[RAW.latest]){
-      curRev+=latestDayRev;
-    }
-  }
+  // ── Get targets from latest date in each month ──────────────────
+  const getMonthTgt=(mo)=>{
+    const dates=mo.dates||[];
+    if(!dates.length)return{ach:0,tgt:0};
+    const lastDate=dates[dates.length-1];
+    const tbd=mo.targets_by_date||{};
+    const td=tbd[lastDate];
+    if(!td||!td.targets)return{ach:0,tgt:0};
+    const T=td.targets;
+    const ach=Object.values(T).reduce((s,t)=>s+(t.achievement||0),0);
+    const tgt=Object.values(T).reduce((s,t)=>s+(t.target||0),0);
+    return{ach,tgt};
+  };
 
-  // Run rate = revenue per day elapsed (not per total days)
-  const curRate=curDN>0?curRev/curDN:0;
-  const prevRate=prevDN>0?prevRev/prevDN:0;
+  const cur=getMonthTgt(curMo);
+  const prev=getMonthTgt(prevMo);
+
+  // Run rate = achievement per day elapsed
+  const curRate=curDN>0?cur.ach/curDN:0;
+  const prevRate=prevDN>0?prev.ach/prevDN:0;
+  const curPct=pct(cur.ach,cur.tgt);
+  const prevPct=pct(prev.ach,prev.tgt);
   const rateChg=prevRate>0?Math.round((curRate-prevRate)/prevRate*100):0;
-  const col=rateChg>=0?'var(--grn)':'var(--mku)';
+  const rateCol=rateChg>=0?'var(--grn)':'var(--mku)';
+  const projected=Math.round(curRate*curDIM);
+  const projPct=pct(projected,cur.tgt);
+  const projCol=projPct>=100?'var(--grn)':projPct>=75?'var(--org)':'var(--mku)';
+
+  // Time elapsed % for on-track indicator
+  const curTimePct=Math.round(curDN/curDIM*100);
+  const prevTimePct=Math.round(prevDN/prevDIM*100);
+  const onTrackCur=curPct>=curTimePct;
+  const onTrackPrev=prevPct>=prevTimePct;
 
   momEl.innerHTML=`<div class="card" style="margin-bottom:14px">
-    <div class="card-hdr"><div class="card-title"><div class="ci mks">📈</div>Month-on-Month Run Rate</div><span class="card-sub">${prevMo.label||prevKey} → ${curMo.label||curKey}</span></div>
+    <div class="card-hdr">
+      <div class="card-title"><div class="ci mks">📈</div>Month-on-Month Run Rate</div>
+      <span class="card-sub">${prevMo.label||prevKey} → ${curMo.label||curKey}</span>
+    </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px">
-        <div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${prevMo.label||prevKey}</div>
-        <div style="font-size:1rem;font-weight:800">${fmtRp(prevRev)}</div>
-        <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(Math.round(prevRate))}/day · ${prevDN} of ${prevDIM} days</div>
+
+      <div style="padding:14px;background:var(--bg);border-radius:10px">
+        <div style="font-size:.58rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:8px">${prevMo.label||prevKey} <span style="color:${onTrackPrev?'var(--grn)':'var(--mku)'};font-weight:800">${onTrackPrev?'✓ On Track':'✗ Behind'}</span></div>
+        <div style="font-size:1.1rem;font-weight:800;margin-bottom:2px">${fmtRp(prev.ach)}</div>
+        <div style="font-size:.63rem;color:var(--txt3);margin-bottom:8px">of ${fmtRp(prev.tgt)} target · <strong style="color:${onTrackPrev?'var(--grn)':'var(--mku)'}">${prevPct}%</strong></div>
+        <div style="background:#e4e8ef;border-radius:99px;height:5px;overflow:hidden;margin-bottom:6px"><div style="width:${Math.min(prevPct,100)}%;height:5px;border-radius:99px;background:${onTrackPrev?'var(--grn)':'var(--mku)'}"></div></div>
+        <div style="font-size:.6rem;color:var(--txt3)">${fmtRp(Math.round(prevRate))}/day · ${prevDN} of ${prevDIM} days (${prevTimePct}% time)</div>
       </div>
-      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px">
-        <div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${curMo.label||curKey} (${curDN} days)</div>
-        <div style="font-size:1rem;font-weight:800">${fmtRp(curRev)}</div>
-        <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(Math.round(curRate))}/day · ${curDN} of ${curDIM} days</div>
+
+      <div style="padding:14px;background:var(--bg);border-radius:10px;border:2px solid var(--border)">
+        <div style="font-size:.58rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:8px">${curMo.label||curKey} <span style="color:${onTrackCur?'var(--grn)':'var(--mku)'};font-weight:800">${onTrackCur?'✓ On Track':'✗ Behind'}</span></div>
+        <div style="font-size:1.1rem;font-weight:800;margin-bottom:2px">${fmtRp(cur.ach)}</div>
+        <div style="font-size:.63rem;color:var(--txt3);margin-bottom:8px">of ${fmtRp(cur.tgt)} target · <strong style="color:${onTrackCur?'var(--grn)':'var(--mku)'}">${curPct}%</strong></div>
+        <div style="background:#e4e8ef;border-radius:99px;height:5px;overflow:hidden;margin-bottom:6px"><div style="width:${Math.min(curPct,100)}%;height:5px;border-radius:99px;background:${onTrackCur?'var(--grn)':'var(--mku)'}"></div></div>
+        <div style="font-size:.6rem;color:var(--txt3)">${fmtRp(Math.round(curRate))}/day · ${curDN} of ${curDIM} days (${curTimePct}% time)</div>
       </div>
-      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px">
-        <div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">Run Rate Change</div>
-        <div style="font-size:1.4rem;font-weight:800;color:${col}">${rateChg>=0?'▲':'▼'} ${Math.abs(rateChg)}%</div>
-        <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(Math.round(curRate))}/day vs ${fmtRp(Math.round(prevRate))}/day</div>
+
+      <div style="padding:14px;background:var(--bg);border-radius:10px;text-align:center">
+        <div style="font-size:.58rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:8px">Run Rate Change</div>
+        <div style="font-size:1.6rem;font-weight:800;color:${rateCol};margin-bottom:4px">${rateChg>=0?'▲':'▼'} ${Math.abs(rateChg)}%</div>
+        <div style="font-size:.6rem;color:var(--txt3)">${fmtRp(Math.round(curRate))}/day<br>vs ${fmtRp(Math.round(prevRate))}/day</div>
       </div>
-      <div style="text-align:center;padding:12px;background:var(--mks-l);border-radius:10px;border:1px solid #c7d8fc">
-        <div style="font-size:.6rem;font-weight:700;color:var(--mks);text-transform:uppercase;margin-bottom:6px">Projected Month-End</div>
-        <div style="font-size:1rem;font-weight:800;color:var(--mks)">${fmtRp(Math.round(curRate*curDIM))}</div>
-        <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">At current pace · ${curDIM} days</div>
+
+      <div style="padding:14px;background:var(--mks-l);border-radius:10px;border:1px solid #c7d8fc;text-align:center">
+        <div style="font-size:.58rem;font-weight:700;color:var(--mks);text-transform:uppercase;margin-bottom:8px">Projected Month-End</div>
+        <div style="font-size:1.1rem;font-weight:800;color:${projCol};margin-bottom:2px">${fmtRp(projected)}</div>
+        <div style="font-size:.63rem;color:var(--txt3);margin-bottom:6px">= <strong style="color:${projCol}">${projPct}%</strong> of ${fmtRp(cur.tgt)} target</div>
+        <div style="background:#e4e8ef;border-radius:99px;height:5px;overflow:hidden"><div style="width:${Math.min(projPct,100)}%;height:5px;border-radius:99px;background:${projCol}"></div></div>
+        <div style="font-size:.6rem;color:var(--txt3);margin-top:5px">At ${fmtRp(Math.round(curRate))}/day × ${curDIM} days</div>
       </div>
+
     </div>
   </div>`;
 }
