@@ -560,22 +560,21 @@ function dlPDF(){
   document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));
 }
 
-
-// ── Load customers.js dynamically ─────────────────────────────────────────────
+// ── customers.js loader ───────────────────────────────────────────────────────
 let CUSTOMERS=null;
 function loadCustomers(cb){
   if(CUSTOMERS){cb();return;}
   const s=document.createElement('script');
-  s.src='https://raw.githubusercontent.com/RandyT25/MKU-MKS-Area-Dashboard/main/docs/customers.js';
+  s.src='customers.js';
   s.onload=function(){CUSTOMERS=window.CUSTOMERS||null;cb();};
   s.onerror=function(){console.warn('customers.js not loaded');cb();};
   document.body.appendChild(s);
 }
 
-// ── Month-on-Month run rate ────────────────────────────────────────────────────
+// ── Month-on-Month ────────────────────────────────────────────────────────────
 function renderMoM(){
   const momEl=document.getElementById('mom-trend');
-  if(!momEl||typeof RAW.months==='undefined') return;
+  if(!momEl||typeof RAW.months==='undefined')return;
   const monthKeys=Object.keys(RAW.months).sort();
   const curKey=typeof _mk!=='undefined'?_mk:monthKeys[monthKeys.length-1];
   const curIdx=monthKeys.indexOf(curKey);
@@ -592,102 +591,45 @@ function renderMoM(){
   const curRate=curDN>0?curRev/curDN:0,prevRate=prevDN>0?prevRev/prevDN:0;
   const rateChg=prevRate>0?Math.round((curRate-prevRate)/prevRate*100):0;
   const col=rateChg>=0?'var(--grn)':'var(--mku)';
-  momEl.innerHTML=`<div class="card" style="margin-bottom:14px">
-    <div class="card-hdr"><div class="card-title"><div class="ci mks">📈</div>Month-on-Month Run Rate</div><span class="card-sub">${prevMo.label||prevKey} → ${curMo.label||curKey}</span></div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px">
-        <div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${prevMo.label||prevKey}</div>
-        <div style="font-size:1rem;font-weight:800">${fmtRp(prevRev)}</div>
-        <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(prevRate)}/day · ${prevDN} days</div>
-      </div>
-      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px">
-        <div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${curMo.label||curKey} (${curDN} days)</div>
-        <div style="font-size:1rem;font-weight:800">${fmtRp(curRev)}</div>
-        <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day</div>
-      </div>
-      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px">
-        <div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">Run Rate Change</div>
-        <div style="font-size:1.4rem;font-weight:800;color:${col}">${rateChg>=0?'▲':'▼'} ${Math.abs(rateChg)}%</div>
-        <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day vs ${fmtRp(prevRate)}/day</div>
-      </div>
-      <div style="text-align:center;padding:12px;background:var(--mks-l);border-radius:10px;border:1px solid #c7d8fc">
-        <div style="font-size:.6rem;font-weight:700;color:var(--mks);text-transform:uppercase;margin-bottom:6px">Projected Month-End</div>
-        <div style="font-size:1rem;font-weight:800;color:var(--mks)">${fmtRp(curRate*curDIM)}</div>
-        <div style="font-size:.63rem;color:var(--txt3);margin-top:3px">At current pace · ${curDIM} days</div>
-      </div>
-    </div>
-  </div>`;
+  momEl.innerHTML=`<div class="card" style="margin-bottom:14px"><div class="card-hdr"><div class="card-title"><div class="ci mks">📈</div>Month-on-Month Run Rate</div><span class="card-sub">${prevMo.label||prevKey} → ${curMo.label||curKey}</span></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px"><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${prevMo.label||prevKey}</div><div style="font-size:1rem;font-weight:800">${fmtRp(prevRev)}</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(prevRate)}/day · ${prevDN} days</div></div><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${curMo.label||curKey} (${curDN} days)</div><div style="font-size:1rem;font-weight:800">${fmtRp(curRev)}</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day</div></div><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">Run Rate Change</div><div style="font-size:1.4rem;font-weight:800;color:${col}">${rateChg>=0?'▲':'▼'} ${Math.abs(rateChg)}%</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day vs ${fmtRp(prevRate)}/day</div></div><div style="text-align:center;padding:12px;background:var(--mks-l);border-radius:10px;border:1px solid #c7d8fc"><div style="font-size:.6rem;font-weight:700;color:var(--mks);text-transform:uppercase;margin-bottom:6px">Projected Month-End</div><div style="font-size:1rem;font-weight:800;color:var(--mks)">${fmtRp(curRate*curDIM)}</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">At current pace · ${curDIM} days</div></div></div></div>`;
 }
 
 // ── Business tab ──────────────────────────────────────────────────────────────
 function renderBusiness(){
   loadCustomers(function(){
-    renderAreaPerf();
-    renderSegments();
-    renderCustomerSearch();
+    const el1=document.getElementById('biz-area');
+    if(el1&&CUSTOMERS){
+      const areas=CUSTOMERS.areas||{};
+      const months=CUSTOMERS.months||[];
+      const rows=Object.values(areas).sort((a,b)=>b.total-a.total);
+      const cols=months.slice(-3);
+      el1.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci grn">📍</div>Area Performance — Monthly Revenue</div></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Area</th><th>Div</th>${cols.map(m=>`<th class="num">${m.slice(0,3)}</th>`).join('')}<th class="num">Total</th><th>Trend</th></tr></thead><tbody>${rows.map(a=>{const vals=cols.map(m=>a.monthly[m]||0);const last=vals[vals.length-1],prev=vals[vals.length-2]||0;const trend=prev>0?Math.round((last-prev)/prev*100):0;const arrow=trend>0?'<span style="color:var(--grn)">▲'+trend+'%</span>':trend<0?'<span style="color:var(--mku)">▼'+Math.abs(trend)+'%</span>':'—';return`<tr><td style="font-weight:600;font-size:.7rem">${a.name}</td><td style="font-size:.63rem;color:var(--txt3)">${(a.division||'').replace(' Bali','')}</td>${vals.map(v=>`<td class="num">${fmtRp(v)}</td>`).join('')}<td class="num" style="font-weight:700">${fmtRp(a.total)}</td><td>${arrow}</td></tr>`;}).join('')}</tbody></table></div></div>`;
+    }
+    const el2=document.getElementById('biz-seg');
+    if(el2&&CUSTOMERS){
+      const segs=CUSTOMERS.segments||{};
+      const rows=Object.entries(segs).sort((a,b)=>b[1].total-a[1].total);
+      const tot=rows.reduce((s,[,v])=>s+v.total,0);
+      el2.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci pur">🏷️</div>Customer Segment Breakdown</div></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Segment</th><th class="num">Customers</th><th class="num">Total Revenue</th><th class="num">% of Total</th></tr></thead><tbody>${rows.map(([seg,v])=>`<tr><td style="font-weight:600">${seg}</td><td class="num">${v.cust_count}</td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(v.total)}</td><td class="num">${tot>0?Math.round(v.total/tot*100):0}%</td></tr>`).join('')}</tbody></table></div></div>`;
+    }
+    const el3=document.getElementById('biz-cust');
+    if(el3&&CUSTOMERS) renderCustomerSearch('');
   });
 }
 
-function renderAreaPerf(){
-  const el=document.getElementById('biz-area');
-  if(!el||!CUSTOMERS)return;
-  const areas=CUSTOMERS.areas||{};
-  const months=CUSTOMERS.months||[];
-  const rows=Object.values(areas).sort((a,b)=>b.total-a.total);
-  // Build table with monthly columns
-  const cols=months.slice(-3); // last 3 months
-  el.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci grn">📍</div>Area Performance — Monthly Revenue</div></div>
-    <div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Area</th><th>Division</th>${cols.map(m=>`<th class="num">${m.slice(0,3)}</th>`).join('')}<th class="num">Total</th><th>Trend</th></tr></thead>
-    <tbody>${rows.map(a=>{
-      const vals=cols.map(m=>a.monthly[m]||0);
-      const last=vals[vals.length-1],prev=vals[vals.length-2]||0;
-      const trend=prev>0?Math.round((last-prev)/prev*100):0;
-      const arrow=trend>0?'<span style="color:var(--grn)">▲'+trend+'%</span>':trend<0?'<span style="color:var(--mku)">▼'+Math.abs(trend)+'%</span>':'—';
-      return `<tr><td style="font-weight:600">${a.name}</td><td style="font-size:.65rem;color:var(--txt3)">${(a.division||'').replace(' Bali','')}</td>${vals.map(v=>`<td class="num">${fmtRp(v)}</td>`).join('')}<td class="num" style="font-weight:700">${fmtRp(a.total)}</td><td>${arrow}</td></tr>`;
-    }).join('')}</tbody>
-    </table></div></div>`;
-}
-
-function renderSegments(){
-  const el=document.getElementById('biz-seg');
-  if(!el||!CUSTOMERS)return;
-  const segs=CUSTOMERS.segments||{};
-  const rows=Object.entries(segs).sort((a,b)=>b[1].total-a[1].total);
-  el.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci pur">🏷️</div>Customer Segment Breakdown</div></div>
-    <div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Segment</th><th class="num">Customers</th><th class="num">Total Revenue</th><th class="num">% of Total</th></tr></thead>
-    <tbody>${(()=>{const tot=rows.reduce((s,[,v])=>s+v.total,0);return rows.map(([seg,v])=>`<tr><td style="font-weight:600">${seg}</td><td class="num">${v.cust_count}</td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(v.total)}</td><td class="num">${tot>0?Math.round(v.total/tot*100):0}%</td></tr>`).join('');})()}</tbody>
-    </table></div></div>`;
-}
-
-function renderCustomerSearch(q=''){
+function renderCustomerSearch(q){
   const el=document.getElementById('biz-cust');
   if(!el||!CUSTOMERS)return;
   const byRep=CUSTOMERS.by_rep||{};
-  // Flatten all customers
   let all=[];
-  Object.entries(byRep).forEach(([rep,rd])=>{
-    Object.entries(rd.customers||{}).forEach(([code,c])=>{
-      all.push({code,rep,...c});
-    });
-  });
-  if(q) all=all.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())||c.rep.toLowerCase().includes(q.toLowerCase()));
+  Object.entries(byRep).forEach(([rep,rd])=>{Object.entries(rd.customers||{}).forEach(([code,c])=>{all.push({code,rep,...c});});});
+  if(q)all=all.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())||c.rep.toLowerCase().includes(q.toLowerCase()));
   all.sort((a,b)=>b.total-a.total);
-  const top=all.slice(0,50);
-  el.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">👥</div>Customer Profiles</div></div>
-    <div style="margin-bottom:12px"><input type="text" placeholder="Search customer or rep..." oninput="renderCustomerSearch(this.value)" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:.75rem;font-family:inherit">
-    </div>
-    <div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Customer</th><th>Rep</th><th>Segment</th><th>Area</th><th class="num">Total Spend</th><th>Last Order</th></tr></thead>
-    <tbody>${top.map(c=>`<tr><td style="font-weight:600;font-size:.7rem">${c.name}</td><td style="font-size:.65rem;color:var(--txt2)">${c.rep}</td><td style="font-size:.63rem">${c.group||'—'}</td><td style="font-size:.63rem;color:var(--txt3)">${c.area||'—'}</td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(c.total)}</td><td style="font-size:.65rem;color:${c.last_month==='May'?'var(--grn)':'var(--org)'}">${c.last_month||'—'}</td></tr>`).join('')}</tbody>
-    </table></div></div>`;
+  el.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">👥</div>Customer Profiles</div></div><div style="margin-bottom:12px"><input type="text" value="${q||''}" placeholder="Search customer or rep..." oninput="renderCustomerSearch(this.value)" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:.75rem;font-family:inherit"></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Customer</th><th>Rep</th><th>Segment</th><th class="num">Total Spend</th><th>Last Order</th></tr></thead><tbody>${all.slice(0,50).map(c=>`<tr><td style="font-weight:600;font-size:.7rem">${c.name}</td><td style="font-size:.65rem;color:var(--txt2)">${c.rep}</td><td style="font-size:.63rem">${c.group||'—'}</td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(c.total)}</td><td style="font-size:.65rem;color:${c.last_month==='May'?'var(--grn)':'var(--org)'}">${c.last_month||'—'}</td></tr>`).join('')}</tbody></table></div></div>`;
 }
 
-// ── Patch renderAll to include MoM and Business ───────────────────────────────
-const _origRenderAll=renderAll;
-function renderAll(){_origRenderAll();renderMoM();if(document.getElementById('tc-biz')&&document.getElementById('tc-biz').classList.contains('active'))renderBusiness();}
 function switchTabBiz(){switchTab('biz');renderBusiness();}
 function mobileTabBiz(){mobileTab('biz');renderBusiness();}
 
 renderAll();
+renderMoM();
