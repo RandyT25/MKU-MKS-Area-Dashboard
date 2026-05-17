@@ -21,7 +21,6 @@
     <button class="co-btn" id="btn-mks" onclick="setCompany('MKS')" style="color:var(--mks)">MKS</button>
   </div>
   <div class="vdiv"></div>
-
   <div class="dl-wrap" id="dl-wrap">
     <button class="dl-btn" onclick="toggleDL()">⬇ Download <span class="dl-chev">▼</span></button>
     <div class="dl-menu">
@@ -69,8 +68,6 @@
   </div>
 </div>
 
-
-
 <div class="page">
   <div class="kpi-strip n6" id="kpi-strip"></div>
   <div class="tab-bar">
@@ -83,6 +80,7 @@
     <button class="tab" onclick="switchTabBiz()">📊 Business</button>
   </div>
 
+  <!-- TARGET TAB -->
   <div class="tc active" id="tc-target">
     <div id="tgt-cats" style="margin-bottom:14px"></div>
     <div id="mom-trend"></div>
@@ -104,17 +102,21 @@
     </div>
   </div>
 
+  <!-- SALES ORDERS TAB -->
   <div class="tc" id="tc-so">
     <div class="g2">
       <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">💰</div>Revenue by Rep</div><span class="card-sub" id="so-co-lbl"></span></div><div class="chart-wrap"><canvas id="ch-rep"></canvas></div></div>
       <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci grn">📦</div>Top Products</div></div><div class="chart-wrap"><canvas id="ch-prod"></canvas></div></div>
     </div>
+    <!-- NEW: Segment donut -->
     <div class="g2">
-      <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">🏢</div>Top Customers</div></div><div class="tbl-wrap" style="max-height:300px;overflow-y:auto"><table class="tbl" id="tbl-cust"></table></div></div>
-      <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">🧾</div>All Sales Orders</div><span class="card-sub" id="so-count-lbl"></span></div><div class="tbl-wrap" style="max-height:300px;overflow-y:auto"><table class="tbl" id="tbl-so"></table></div></div>
+      <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci pur">🍕</div>Revenue by Segment</div><span class="card-sub">Food · Beverage · Nestlé</span></div><div class="chart-wrap"><canvas id="ch-seg"></canvas></div></div>
+      <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">🏢</div>Top Customers</div><span class="card-sub" style="font-size:.62rem;color:var(--txt3)">Click 🔍 for order history</span></div><div class="tbl-wrap" style="max-height:300px;overflow-y:auto"><table class="tbl" id="tbl-cust"></table></div></div>
     </div>
+    <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">🧾</div>All Sales Orders</div><span class="card-sub" id="so-count-lbl"></span></div><div class="tbl-wrap" style="max-height:300px;overflow-y:auto"><table class="tbl" id="tbl-so"></table></div></div>
   </div>
 
+  <!-- DELIVERY TAB -->
   <div class="tc" id="tc-delivery">
     <div class="kpi-strip n5" id="del-kpis" style="margin-bottom:14px"></div>
     <div class="g2">
@@ -124,19 +126,24 @@
     <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">🚚</div>All Deliveries</div><span class="card-sub" id="del-count-lbl"></span></div><div class="tbl-wrap" style="max-height:340px;overflow-y:auto"><table class="tbl" id="tbl-del"></table></div></div>
   </div>
 
+  <!-- REPS TAB -->
   <div class="tc" id="tc-reps">
-    <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">👥</div>Sales Rep Performance</div><span class="card-sub" id="reps-lbl"></span></div><div class="tbl-wrap"><table class="tbl" id="tbl-reps"></table></div></div>
+    <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci mks">👥</div>Sales Rep Performance</div><span class="card-sub" id="reps-lbl"></span></div><div class="tbl-wrap" style="overflow-x:auto"><table class="tbl" id="tbl-reps"></table></div></div>
   </div>
 
+  <!-- STOCK TAB -->
   <div class="tc" id="tc-stock">
     <div class="kpi-strip n4" id="stk-kpis" style="margin-bottom:14px"></div>
     <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">🏭</div>Stock Levels</div><div class="pills" id="stk-pills"></div></div><div class="sg" id="sg"></div></div>
   </div>
 
+  <!-- ALERTS TAB -->
   <div class="tc" id="tc-alerts">
     <div id="alerts-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px"></div>
     <div id="alerts-accordions"></div>
   </div>
+
+  <!-- BUSINESS TAB -->
   <div class="tc" id="tc-biz">
     <div id="biz-area" style="margin-bottom:14px"></div>
     <div id="biz-seg" style="margin-bottom:14px"></div>
@@ -145,7 +152,7 @@
 
 </div>
 
-<!-- LOAD ORDER: data.js first (defines RAW), then Chart.js via dynamic loader, then app.js runs inside onload -->
+<!-- LOAD ORDER: data.js first, then Chart.js, then app.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="data.js"></script>
 <script>
@@ -174,6 +181,7 @@ function switchMonth(key){
   buildMonthMenu();
   if(typeof buildDT==='function')buildDT();
   if(typeof renderAll==='function')renderAll();
+  if(typeof renderMoM==='function')renderMoM();
 }
 function toggleMonthDD(){
   var open=document.querySelector('.month-dd-wrap.open');
