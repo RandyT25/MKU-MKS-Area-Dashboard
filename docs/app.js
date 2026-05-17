@@ -345,13 +345,29 @@ function renderSO(){
     const foodA=T.FOOD?.achievement||0,bevA=T.BEVERAGE?.achievement||0,nesA=T.NESTLE?.achievement||0;
     const segTot=foodA+bevA+nesA;
     if(charts.seg)charts.seg.destroy();
+    // Center text plugin (inline)
+    const centerTextPlugin={id:'centerText',beforeDraw(chart){
+      const{ctx,chartArea:{width,height,left,top}}=chart;
+      ctx.save();
+      ctx.font='700 13px Plus Jakarta Sans,sans-serif';
+      ctx.fillStyle='#1a2035';
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText(fmtRp(segTot),left+width/2,top+height/2-8);
+      ctx.font='500 10px Plus Jakarta Sans,sans-serif';
+      ctx.fillStyle='#8a93b0';
+      ctx.fillText('Total Revenue',left+width/2,top+height/2+10);
+      ctx.restore();
+    }};
     charts.seg=new Chart(segEl,{type:'doughnut',data:{
       labels:['Food','Beverage','Nestlé'],
-      datasets:[{data:[foodA,bevA,nesA],backgroundColor:['#2563eb','#059669','#7c3aed'],borderWidth:2,borderColor:'#fff'}]
-    },options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:'#8a93b0',font:{family:'Plus Jakarta Sans',size:11},boxWidth:10,padding:14}},
-      tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${fmtRp(ctx.raw)} (${segTot>0?Math.round(ctx.raw/segTot*100):0}%)`}}}
-    }});
+      datasets:[{data:[foodA,bevA,nesA],backgroundColor:['#2563eb','#059669','#7c3aed'],borderWidth:3,borderColor:'#fff',hoverOffset:6}]
+    },options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{
+        legend:{position:'bottom',labels:{color:'#8a93b0',font:{family:'Plus Jakarta Sans',size:11},boxWidth:10,padding:16}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${fmtRp(ctx.raw)} (${segTot>0?Math.round(ctx.raw/segTot*100):0}%)`}}
+      }
+    },plugins:[centerTextPlugin]});
   }
 
   // ── Top customers — clickable for history ────────────────────
@@ -656,15 +672,22 @@ function dlPDF(){
   document.querySelectorAll('.dl-wrap').forEach(w=>w.classList.remove('open'));
 }
 
-// ── customers.js loader — fixed double-load crash ─────────────────
+// ── customers.js loader — fixed double-load + window scope issue ──
 let _custLoaded=false;
+function getCUST(){return window.CUSTOMERS||null;}
 function loadCustomers(cb){
-  if(_custLoaded&&window.CUSTOMERS){cb();return;}
+  if(_custLoaded&&getCUST()){cb();return;}
   if(document._loadingCust){document._loadingCust.push(cb);return;}
   document._loadingCust=[cb];
   const s=document.createElement('script');
-  s.src='customers.js?v=1';
-  s.onload=function(){_custLoaded=true;(document._loadingCust||[]).forEach(f=>f());document._loadingCust=null;};
+  s.src='customers.js?v=2';
+  s.onload=function(){
+    _custLoaded=true;
+    // customers.js may use const/let which don't attach to window — try eval fallback
+    if(!window.CUSTOMERS){try{window.CUSTOMERS=CUSTOMERS;}catch(e){}}
+    (document._loadingCust||[]).forEach(f=>f());
+    document._loadingCust=null;
+  };
   s.onerror=function(){console.warn('customers.js not found');(document._loadingCust||[]).forEach(f=>f());document._loadingCust=null;};
   document.body.appendChild(s);
 }
@@ -691,9 +714,19 @@ function renderMoM(){
   const prevDIM=new Date(parseInt(prevKey.split('-')[0]),parseInt(prevKey.split('-')[1]),0).getDate();
 
   // ── FIX: sum SO revenue from so_summary, not targets achievement ─
+  // Also add latest day's RAW.so rows which aren't compressed into so_summary yet
   let curRev=0,prevRev=0;
   Object.values(curMo.so_summary||{}).forEach(s=>curRev+=s.rev||0);
   Object.values(prevMo.so_summary||{}).forEach(s=>prevRev+=s.rev||0);
+  // Latest day rows live in RAW.so (not yet in so_summary) — add them to current month
+  const latestYM=RAW.latest?RAW.latest.slice(0,7):'';
+  if(latestYM===curKey){
+    const latestDayRev=(RAW.so||[]).reduce((s,r)=>s+(r.revenue||0),0);
+    // Only add if not already counted (check if RAW.latest is a key in curMo.so_summary)
+    if(!curMo.so_summary||!curMo.so_summary[RAW.latest]){
+      curRev+=latestDayRev;
+    }
+  }
 
   // Run rate = revenue per day elapsed (not per total days)
   const curRate=curDN>0?curRev/curDN:0;
@@ -731,30 +764,34 @@ function renderMoM(){
 // ── Business tab ──────────────────────────────────────────────────
 function renderBusiness(){
   loadCustomers(function(){
+    const C=getCUST();
     const el1=document.getElementById('biz-area');
-    if(el1&&window.CUSTOMERS){
-      const areas=window.CUSTOMERS.areas||{};
-      const months=window.CUSTOMERS.months||[];
+    if(el1&&C){
+      const areas=C.areas||{};
+      const months=C.months||[];
       const rows=Object.values(areas).sort((a,b)=>b.total-a.total);
       const cols=months.slice(-3);
       el1.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci grn">📍</div>Area Performance — Monthly Revenue</div></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Area</th><th>Div</th>${cols.map(m=>`<th class="num">${m.slice(0,3)}</th>`).join('')}<th class="num">Total</th><th>Trend</th></tr></thead><tbody>${rows.map(a=>{const vals=cols.map(m=>a.monthly[m]||0);const last=vals[vals.length-1],prev=vals[vals.length-2]||0;const trend=prev>0?Math.round((last-prev)/prev*100):0;const arrow=trend>0?'<span style="color:var(--grn)">▲'+trend+'%</span>':trend<0?'<span style="color:var(--mku)">▼'+Math.abs(trend)+'%</span>':'—';return`<tr><td style="font-weight:600;font-size:.7rem">${a.name}</td><td style="font-size:.63rem;color:var(--txt3)">${(a.division||'').replace(' Bali','')}</td>${vals.map(v=>`<td class="num">${fmtRp(v)}</td>`).join('')}<td class="num" style="font-weight:700">${fmtRp(a.total)}</td><td>${arrow}</td></tr>`;}).join('')}</tbody></table></div></div>`;
+    } else if(el1&&!C){
+      el1.innerHTML=`<div class="card"><div style="padding:24px;text-align:center;color:var(--txt3)">⚠️ customers.js not loaded. Run <code>update_history.py</code> and upload customers.js.</div></div>`;
     }
     const el2=document.getElementById('biz-seg');
-    if(el2&&window.CUSTOMERS){
-      const segs=window.CUSTOMERS.segments||{};
+    if(el2&&C){
+      const segs=C.segments||{};
       const rows=Object.entries(segs).sort((a,b)=>b[1].total-a[1].total);
       const tot=rows.reduce((s,[,v])=>s+v.total,0);
       el2.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci pur">🏷️</div>Customer Segment Breakdown</div></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Segment</th><th class="num">Customers</th><th class="num">Total Revenue</th><th class="num">% of Total</th></tr></thead><tbody>${rows.map(([seg,v])=>`<tr><td style="font-weight:600">${seg}</td><td class="num">${v.cust_count}</td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(v.total)}</td><td class="num">${tot>0?Math.round(v.total/tot*100):0}%</td></tr>`).join('')}</tbody></table></div></div>`;
     }
     const el3=document.getElementById('biz-cust');
-    if(el3&&window.CUSTOMERS)renderCustomerSearch('');
+    if(el3&&C)renderCustomerSearch('');
   });
 }
 
 function renderCustomerSearch(q){
   const el=document.getElementById('biz-cust');
-  if(!el||!window.CUSTOMERS)return;
-  const byRep=window.CUSTOMERS.by_rep||{};
+  const C=getCUST();
+  if(!el||!C)return;
+  const byRep=C.by_rep||{};
   let all=[];
   Object.entries(byRep).forEach(([rep,rd])=>{Object.entries(rd.customers||{}).forEach(([code,c])=>{all.push({code,rep,...c});});});
   if(q)all=all.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())||c.rep.toLowerCase().includes(q.toLowerCase()));
