@@ -170,7 +170,7 @@ def parse_stock(path):
     for _, row in df.iterrows():
         r = list(row); code = r[0]
         if pd.isna(code) or str(code).strip().lower() in ("","nan"): continue
-        saldo=fval(r[3]); buf=fval(r[8])
+        saldo=fval(r[3]); buf=fval(r[10])
         st="out" if saldo<=0 else "critical" if buf<3 else "low" if buf<7 else "ok"
         items.append({"code":str(code).strip(),
             "name":str(r[1]).strip() if not pd.isna(r[1]) else "",
