@@ -15,9 +15,9 @@ except ImportError:
     print("ERROR: pandas not installed. Run: pip install pandas openpyxl")
     sys.exit(1)
 
-REPO_ROOT    = Path(__file__).parent.parent
-UPLOADS_DIR  = REPO_ROOT / "uploads"
-DATA_JS      = REPO_ROOT / "docs" / "data.js"
+REPO_ROOT     = Path(__file__).parent.parent
+UPLOADS_DIR   = REPO_ROOT / "uploads"
+DATA_JS       = REPO_ROOT / "docs" / "data.js"
 DATA_SALES_JS = REPO_ROOT / "docs" / "data_sales.js"
 
 MONTH_SHEET = {
@@ -218,14 +218,14 @@ def parse_targets(path,date_str):
             if "NAUGHTY NURIS" in area_up:
                 an="NAUGHTY NURIS (SANUR)" if "MADE LUIH" in sales_raw.upper() or "NN MADE" in sales_raw.upper() else "NAUGHTY NURIS (SEMINYAK)"
                 sales_n="I Made Luih" if "SANUR" in an else "Sujana"
-                pct=round(food_ach/food_t*100) if food_t>0 else 0
-                area_targets.append({"area":an,"sales":sales_n,"food_target":food_t,"bev_target":0,"food_ach":food_ach,"bev_ach":0,"pct":pct})
+                pct_val=round(food_ach/food_t*100) if food_t>0 else 0
+                area_targets.append({"area":an,"sales":sales_n,"food_target":food_t,"bev_target":0,"food_ach":food_ach,"bev_ach":0,"pct":pct_val})
                 i+=1;continue
             matched=next((v for k,v in AREA_NAME_MAP.items() if k in area_up),None)
             if not matched: i+=1;continue
             total_t=food_t+bev_t;total_a=food_ach+bev_ach
-            pct=round(total_a/total_t*100) if total_t>0 else 0
-            area_targets.append({"area":matched,"sales":sales_n,"food_target":food_t,"bev_target":bev_t,"food_ach":food_ach,"bev_ach":bev_ach,"pct":pct})
+            pct_val=round(total_a/total_t*100) if total_t>0 else 0
+            area_targets.append({"area":matched,"sales":sales_n,"food_target":food_t,"bev_target":bev_t,"food_ach":food_ach,"bev_ach":bev_ach,"pct":pct_val})
             i+=1
 
     balian_start=find_row("BALIAN",col=1);balian_rows=[]
@@ -246,7 +246,7 @@ def parse_targets(path,date_str):
 
     tdf=pd.read_excel(path,sheet_name="TARGETS",header=None);trows=list(tdf.values)
     def get_nestle_target(keyword):
-        col=3+(month_idx-1)  # col1=CHANNEL, col2=SALES, col3=JAN, col4=FEB...
+        col=3+(month_idx-1)  # col1=CHANNEL, col2=SALES, col3=JAN...
         for r in trows:
             c1=str(r[1]).strip() if r[1] is not None else ""
             if keyword.lower() in c1.lower(): return fval(r[col]) if col<len(r) else 0.0
@@ -260,7 +260,8 @@ def parse_targets(path,date_str):
     return {"targets":{"FOOD":{"target":food_total_t,"achievement":food_total_a},
         "BEVERAGE":{"target":bev_total_t,"achievement":bev_total_a},
         "NESTLE":{"target":nes_total_t,"achievement":nes_total_a}},
-        "nestle_areas":[{"area":"NP-1","sales":"Ridwan","target":rint(np1_t),"achievement":rint(np1_ach),"pct":np1_pct},
+        "nestle_areas":[
+            {"area":"NP-1","sales":"Ridwan","target":rint(np1_t),"achievement":rint(np1_ach),"pct":np1_pct},
             {"area":"NP-2","sales":"Redi","target":rint(np2_t),"achievement":rint(np2_ach),"pct":np2_pct},
             {"area":"NP-3","sales":"Gek Mas","target":rint(np3_t),"achievement":rint(np3_final),"pct":np3_pct}],
         "area_targets":area_targets,"balian":balian_rows}
@@ -305,10 +306,9 @@ def load_existing():
     if content.endswith(";"): content=content[:-1]
     try:
         raw=json.loads(content)
-        # Migrate old flat structure to new multi-month structure
         if "months" not in raw:
             print("Migrating to multi-month structure...")
-            month_key=raw["latest"][:7]  # e.g. "2026-04"
+            month_key=raw["latest"][:7]
             dt=datetime.strptime(raw["latest"],"%Y-%m-%d")
             label=dt.strftime("%B %Y")
             raw={"latest":raw["latest"],"so":raw.get("so",[]),
@@ -323,14 +323,13 @@ def main():
     print("="*60);print("MKU & MKS Dashboard Pipeline (Multi-Month)");print("="*60)
     date_str,so_file,stk_mku,stk_mks,del_mku,del_mks,pencapaian=find_uploads()
     dt=datetime.strptime(date_str,"%Y-%m-%d")
-    month_key=date_str[:7]  # e.g. "2026-05"
+    month_key=date_str[:7]
     month_label=dt.strftime("%B %Y")
 
     raw=load_existing()
     if raw is None:
         raw={"latest":None,"so":[],"months":{}}
 
-    # Ensure this month exists
     if month_key not in raw["months"]:
         print(f"\nNew month detected: {month_label}")
         raw["months"][month_key]={"label":month_label,"dates":[],
@@ -338,19 +337,31 @@ def main():
 
     m=raw["months"][month_key]
 
-    # Compress previous latest day if same month
+    # ── FIX: compress previous day BEFORE parsing new files ────────
+    # Use the SO rows already stored in so_summary (not raw["so"] which
+    # is about to be overwritten). Only compress if not already done.
     prev=raw.get("latest")
-    if prev and prev!=date_str and prev[:7]==month_key:
+    if prev and prev != date_str and prev[:7] == month_key:
         print(f"\nCompressing {prev}...")
-        m["so_summary"][prev]=compress_so(raw.get("so",[]))
-        prev_stk=m["stock_by_date"].get(prev,{})
-        m["stock_by_date"][prev]=compress_stock(
-            prev_stk.get("MKU_full",prev_stk.get("MKU",[])),
-            prev_stk.get("MKS_full",prev_stk.get("MKS",[])))
-        prev_del=m["delivery_by_date"].get(prev,{})
-        m["delivery_by_date"][prev]=compress_del(prev_del.get("mku_full",[]),prev_del.get("mks_full",[]))
+        # ── KEY FIX: so_summary[prev] was already written on the previous
+        # run — do NOT re-compress from raw["so"] (that would overwrite
+        # it with stale/wrong data). Only compress stock & delivery
+        # if they still have _full keys (meaning they weren't compressed yet).
+        prev_stk = m["stock_by_date"].get(prev, {})
+        if "MKU_full" in prev_stk or "MKS_full" in prev_stk:
+            print(f"  Compressing stock for {prev}...")
+            m["stock_by_date"][prev] = compress_stock(
+                prev_stk.get("MKU_full", prev_stk.get("MKU", [])),
+                prev_stk.get("MKS_full", prev_stk.get("MKS", [])))
+        prev_del = m["delivery_by_date"].get(prev, {})
+        if "mku_full" in prev_del or "mks_full" in prev_del:
+            print(f"  Compressing delivery for {prev}...")
+            m["delivery_by_date"][prev] = compress_del(
+                prev_del.get("mku_full", []),
+                prev_del.get("mks_full", []))
+        # so_summary[prev] is already correct from the previous run — leave it alone
 
-    # Parse files
+    # Parse today's files
     print(f"\nParsing {date_str}...")
     so_rows=parse_so(so_file,date_str);print(f"  SO: {len(so_rows)} rows")
     mku_stock=parse_stock(stk_mku);print(f"  Stok MKU: {len(mku_stock)}")
@@ -363,8 +374,10 @@ def main():
     print(f"  BEV:  {t['BEVERAGE']['achievement']:,.0f} / {t['BEVERAGE']['target']:,.0f}")
     print(f"  NES:  {t['NESTLE']['achievement']:,.0f} / {t['NESTLE']['target']:,.0f}")
 
-    # Update
-    raw["latest"]=date_str;raw["so"]=so_rows
+    # Write today's data
+    raw["latest"]=date_str
+    raw["so"]=so_rows
+    # Write so_summary for today immediately (correct data, not compressed later)
     m["so_summary"][date_str]=compress_so(so_rows)
     stk=compress_stock(mku_stock,mks_stock);stk["MKU_full"]=mku_stock;stk["MKS_full"]=mks_stock
     m["stock_by_date"][date_str]=stk
