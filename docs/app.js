@@ -226,11 +226,10 @@ function renderTarget(){
   const cats=Object.keys(T);
   const lastDate=RAW.latest;
   const _today=new Date();
-  const _curMoKey=typeof _mk!=='undefined'?_mk:lastDate.slice(0,7);
-  const _curMoNum=parseInt(_curMoKey.split('-')[1]);
-  const _curYrNum=parseInt(_curMoKey.split('-')[0]);
-  const daysInMonth=new Date(_curYrNum,_curMoNum,0).getDate();
-  const dayNum=(_today.getFullYear()===_curYrNum&&_today.getMonth()+1===_curMoNum)?_today.getDate():parseInt(lastDate.split('-')[2]);
+  const _todayMo=_today.getMonth()+1;
+  const _todayYr=_today.getFullYear();
+  const daysInMonth=new Date(_todayYr,_todayMo,0).getDate();
+  const dayNum=_today.getDate();
   const timePct=Math.round(dayNum/daysInMonth*100);
   const badgeCls=p=>p>=timePct?'b-grn':p>=(timePct*0.75)?'b-org':'b-red';
 
@@ -523,11 +522,10 @@ function dlPDF(){
   const tp=pct(tot_a,tot_t);
   const lastDate=RAW.latest;
   const _today2=new Date();
-  const _curMoKey2=typeof _mk!=='undefined'?_mk:lastDate.slice(0,7);
-  const _curMoNum2=parseInt(_curMoKey2.split('-')[1]);
-  const _curYrNum2=parseInt(_curMoKey2.split('-')[0]);
-  const daysInMonth=new Date(_curYrNum2,_curMoNum2,0).getDate();
-  const dayNum=(_today2.getFullYear()===_curYrNum2&&_today2.getMonth()+1===_curMoNum2)?_today2.getDate():parseInt(lastDate.split('-')[2]);
+  const _todayMo2=_today2.getMonth()+1;
+  const _todayYr2=_today2.getFullYear();
+  const daysInMonth=new Date(_todayYr2,_todayMo2,0).getDate();
+  const dayNum=_today2.getDate();
   const timePct=Math.round(dayNum/daysInMonth*100);
   const top5=Object.entries(agg.rep_rev).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const dateLabel=activeDate==='ALL'?'All Days':fmtD(activeDate);
