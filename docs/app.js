@@ -503,7 +503,7 @@ function renderDel(){
   }
 }
 
-// ── Reps — with biggest customer + dropped-off ───────────────────
+// ── Reps — with biggest customer + dropped-off + day-over-day growth
 function renderReps(){
   const agg=getAggSummary();
   document.getElementById('reps-lbl').textContent=(company==='ALL'?'All':company)+(activeDate==='ALL'?' · All days':' · '+fmtD(activeDate));
@@ -511,9 +511,18 @@ function renderReps(){
   const max=reps[0]?.[1]||1;
   const divMap={};RAW.so.forEach(r=>{divMap[r.sales]=r.division;});
 
+  // ── Day-over-day growth: get prev date's rep_rev ─────────────────
+  const allDates=(RAW.dates||[]).slice().sort();
+  const curDateIdx=activeDate==='ALL'?allDates.length-1:allDates.indexOf(activeDate);
+  const prevDate=curDateIdx>0?allDates[curDateIdx-1]:null;
+  const prevRepRev=prevDate?getSummary(prevDate).rep_rev:{};
+  // For "All days" mode, compare cumulative up to second-to-last vs all
+  // We show growth only when a specific date is selected or latest
+  const showGrowth=activeDate!=='ALL'||allDates.length>1;
+
   // Build dropped-off: customers seen in previous dates but not today
   const todayCusts=new Set(RAW.so.map(r=>r.customer));
-  const prevCustsByRep={}; // rep -> {custName -> {lastSeen, rev}}
+  const prevCustsByRep={};
   (RAW.dates||[]).filter(d=>d!==RAW.latest).forEach(d=>{
     const s=getSummary(d);
     Object.entries(s.cust||{}).forEach(([c,v])=>{
@@ -524,7 +533,14 @@ function renderReps(){
   });
 
   document.getElementById('tbl-reps').innerHTML=`
-    <thead><tr><th>#</th><th>Rep</th><th>Div</th><th class="num">Revenue</th><th class="num">Orders</th><th class="num">Custs</th><th>Biggest Customer</th><th>⚠ Dropped Off</th><th style="width:80px">vs Top</th></tr></thead>
+    <thead><tr>
+      <th>#</th><th>Rep</th><th>Div</th>
+      <th class="num">Revenue</th>
+      <th class="num">vs ${prevDate?fmtD(prevDate):'prev'}</th>
+      <th class="num">Orders</th><th class="num">Custs</th>
+      <th>Biggest Customer</th><th>⚠ Dropped Off</th>
+      <th style="width:80px">vs Top</th>
+    </tr></thead>
     <tbody>${reps.map(([n,rev],i)=>{
       const div=divMap[n]||'—';
       let orders=0;const custRevMap={};
@@ -540,11 +556,27 @@ function renderReps(){
         .filter(([c])=>!todayCusts.has(c))
         .sort((a,b)=>b[1].rev-a[1].rev);
       const dropped=droppedList[0];
+
+      // ── Growth vs previous date ──────────────────────────────────
+      const prevRev=prevRepRev[n]||0;
+      let growthHtml='<span style="color:var(--txt3);font-size:.65rem">—</span>';
+      if(showGrowth&&prevRev>0){
+        const diff=rev-prevRev;
+        const gPct=Math.round(diff/prevRev*100);
+        const col=gPct>0?'var(--grn)':gPct<0?'var(--mku)':'var(--txt3)';
+        const arrow=gPct>0?'▲':gPct<0?'▼':'';
+        growthHtml=`<div style="font-weight:700;color:${col};font-size:.78rem">${arrow} ${Math.abs(gPct)}%</div>
+          <div style="font-size:.6rem;color:var(--txt3)">${diff>0?'+':''}${fmtRp(diff)}</div>`;
+      } else if(showGrowth&&prevRev===0&&rev>0){
+        growthHtml=`<div style="font-weight:700;color:var(--grn);font-size:.72rem">🆕 New</div>`;
+      }
+
       return`<tr>
         <td style="font-weight:700">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
         <td style="font-weight:700;color:${i===0?'var(--mks)':'var(--txt)'}">${n}</td>
         <td><span class="badge ${div==='MKU Bali'?'b-mku':'b-mks'}">${div==='MKU Bali'?'MKU':div==='MKS Bali'?'MKS':'—'}</span></td>
         <td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(rev)}</td>
+        <td class="num">${growthHtml}</td>
         <td class="num">${orders||'—'}</td>
         <td class="num">${custList.length||'—'}</td>
         <td style="font-size:.65rem;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${biggest?`<span style="font-weight:600">${biggest[0]}</span><br><span style="color:var(--txt3)">${fmtRp(biggest[1])}</span>`:'—'}</td>
