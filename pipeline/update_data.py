@@ -342,6 +342,7 @@ def group_files_by_date():
         print(f"ERROR: No .xlsx files in {UPLOADS_DIR}"); sys.exit(1)
 
     pencapaian = None
+    pencapaian_candidates = []
     # date_files: date_str -> {role -> path}
     date_files = {}
 
@@ -349,7 +350,7 @@ def group_files_by_date():
     for f in files:
         n = norm_name(f.name)
         if "data_pencapaian" in n:
-            pencapaian = f
+            pencapaian_candidates.append(f)
             continue
 
         date_str = extract_date_from_name(f.name)
@@ -359,8 +360,14 @@ def group_files_by_date():
                 date_files[date_str] = {}
             assign_role(f, n, date_files[date_str])
 
-    if not pencapaian:
+    if not pencapaian_candidates:
         print("ERROR: DATA_PENCAPAIAN file not found in uploads/"); sys.exit(1)
+    # Always use the most recently modified pencapaian file
+    pencapaian = max(pencapaian_candidates, key=lambda f: f.stat().st_mtime)
+    if len(pencapaian_candidates) > 1:
+        print(f"WARNING: Multiple DATA_PENCAPAIAN files found — using newest: {pencapaian.name}")
+        for c in pencapaian_candidates:
+            print(f"  {'→ SELECTED' if c == pencapaian else '  ignored '}: {c.name}")
 
     # Second pass: files with day-only names (MKU 21.xlsx, MKS 21.xlsx)
     # We need to know the year+month — infer from other files or use today
@@ -461,8 +468,9 @@ def main():
         # Check required files
         missing = [r for r in ["so","stk_mku","stk_mks","del_mku","del_mks"] if r not in files]
         if missing:
-            print(f"\n⚠ SKIP {date_str} — missing files: {missing}")
-            print(f"  Found: {list(files.keys())}")
+            print(f"\n⚠ SKIP {date_str} — missing: {missing}")
+            print(f"  Found roles: {list(files.keys())}")
+            print(f"  Found files: {[f.name for f in files.values()]}")
             continue
 
         is_latest = (date_str == latest_date)
