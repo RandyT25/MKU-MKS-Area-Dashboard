@@ -266,8 +266,11 @@ function renderTarget(){
     ]},options:{...COPTS,scales:{...COPTS.scales,x:{...COPTS.scales.x,stacked:true},y:{...COPTS.scales.y,stacked:true,ticks:{...COPTS.scales.y.ticks,callback:v=>v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(0)+'M':v}}}}});
 
   // Build prev date area map for ↑↓ growth indicator
+  // For a specific date: compare vs previous uploaded date
+  // For All Days: compare latest date vs second-to-last date (day-over-day on most recent)
   const _allDates=(RAW.dates||[]).slice().sort();
-  const _curDIdx=activeDate==='ALL'?_allDates.length-1:_allDates.indexOf(activeDate);
+  const _activeDateResolved=activeDate==='ALL'?RAW.latest:activeDate;
+  const _curDIdx=_allDates.indexOf(_activeDateResolved);
   const _prevDate=_curDIdx>0?_allDates[_curDIdx-1]:null;
   const _prevAreas=_prevDate?(RAW.targets_by_date[_prevDate]||{}).area_targets||[]:[];
   const _prevAreaMap={};_prevAreas.forEach(a=>{_prevAreaMap[a.area]=a.pct;});
