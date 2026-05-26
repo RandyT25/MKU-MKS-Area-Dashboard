@@ -7,6 +7,7 @@ const fmtQ=n=>{const r=Math.round(n*100)/100;return r%1===0?r.toFixed(0):r.toFix
 const pct=(a,t)=>t>0?Math.round(a/t*100):0;
 const fmtD=d=>{const[,m,dy]=d.split('-');return parseInt(dy)+' '+['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m)];};
 const isLatest=d=>d===RAW.latest;
+const growthArr=(cur,prev)=>{if(!prev||prev===0)return'';const g=((cur-prev)/prev*100).toFixed(1);return parseFloat(g)>=0?'<span style="font-size:.6rem;font-weight:700;color:var(--grn)">&#8593; '+g+'%</span>':'<span style="font-size:.6rem;font-weight:700;color:var(--mku)">&#8595; '+Math.abs(g)+'%</span>';};
 const isFull=d=>d==='ALL'?true:isLatest(d);
 const COPTS={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8a93b0',font:{family:'Plus Jakarta Sans',size:11},boxWidth:10,padding:14}}},scales:{x:{ticks:{color:'#8a93b0',font:{family:'Plus Jakarta Sans',size:10}},grid:{color:'#f0f2f7'},border:{display:false}},y:{ticks:{color:'#8a93b0',font:{family:'Plus Jakarta Sans',size:10}},grid:{color:'#f0f2f7'},border:{display:false}}}};
 
@@ -203,15 +204,28 @@ function renderKPIs(){
   const delStats=getDelStats();
   const stk=getStk();
   const stkSum=getStkSummary();
-  const out=stk.filter(s=>s.st==='out').length+(stkSum&&!isFull(activeDate)?stkSum.mku_out+stkSum.mks_out-stk.filter(s=>s.st==='out').length:0);
   const outCount=stk.filter(s=>s.st==='out').length;
   const critCount=stk.filter(s=>s.st==='critical'||s.st==='low').length;
   const dateLabel=activeDate==='ALL'?(RAW.dates.length+' days'):fmtD(activeDate);
+  // Daily growth vs previous date
+  const allDates=RAW.dates||[];
+  const curIdx=activeDate==='ALL'?allDates.length-1:allDates.indexOf(activeDate);
+  const prevD=curIdx>0?allDates[curIdx-1]:null;
+  const prevS=prevD?getSummary(prevD):{rev:0,mku_rev:0,mks_rev:0};
+  const curS=activeDate==='ALL'?{rev:agg.rev,mku_rev:agg.mku_rev||Object.entries(agg.rep_rev).filter(([k])=>(RAW.so.find(r=>r.sales===k)||{}).division==='MKU Bali').reduce((s,[,v])=>s+v,0),mks_rev:agg.mks_rev||0}:getSummary(activeDate);
+  // MKU/MKS rev from agg (company-aware)
+  let mkuRev=0,mksRev=0;
+  if(activeDate===RAW.latest||activeDate==='ALL'){
+    const divMapK={};RAW.so.forEach(r=>{divMapK[r.sales]=r.division;});
+    Object.entries(agg.rep_rev).forEach(([k,v])=>{if(divMapK[k]==='MKU Bali')mkuRev+=v;else if(divMapK[k]==='MKS Bali')mksRev+=v;});
+  } else {
+    const s=getSummary(activeDate);mkuRev=s.mku_rev||0;mksRev=s.mks_rev||0;
+  }
   document.getElementById('kpi-strip').innerHTML=`
-    <div class="kpi-card c-mks"><div class="kpi-icon mks">💰</div><div class="kpi-label">Total Revenue</div><div class="kpi-value mks">${fmtRp(agg.rev)}</div><div class="kpi-sub">${agg.cnt} orders · ${dateLabel}</div></div>
-    <div class="kpi-card c-gray"><div class="kpi-icon gray">👥</div><div class="kpi-label">Sales Reps</div><div class="kpi-value">${Object.keys(agg.rep_rev).length}</div><div class="kpi-sub">${agg.cust_cnt} customers</div></div>
+    <div class="kpi-card c-mks"><div class="kpi-icon mks">💰</div><div class="kpi-label">Total Revenue</div><div class="kpi-value mks">${fmtRp(agg.rev)}</div>${prevD?growthArr(agg.rev,prevS.rev):''}<div class="kpi-sub">${agg.cnt} orders · ${dateLabel}</div></div>
+    <div class="kpi-card c-mku"><div class="kpi-icon mku">🏢</div><div class="kpi-label">MKU Revenue</div><div class="kpi-value mku">${fmtRp(mkuRev)}</div>${prevD?growthArr(mkuRev,prevS.mku_rev||0):''}<div class="kpi-sub">MKU Bali</div></div>
+    <div class="kpi-card c-mks"><div class="kpi-icon mks">🏢</div><div class="kpi-label">MKS Revenue</div><div class="kpi-value mks">${fmtRp(mksRev)}</div>${prevD?growthArr(mksRev,prevS.mks_rev||0):''}<div class="kpi-sub">MKS Bali</div></div>
     <div class="kpi-card c-grn"><div class="kpi-icon grn">🚚</div><div class="kpi-label">Fulfilment</div><div class="kpi-value grn">${delStats.tot>0?pct(delStats.ful,delStats.tot):'-'}%</div><div class="kpi-sub">${delStats.ful} of ${delStats.tot}</div></div>
-    <div class="kpi-card ${delStats.unf>0?'c-org':'c-grn'}"><div class="kpi-icon ${delStats.unf>0?'org':'grn'}">📋</div><div class="kpi-label">Unfulfilled</div><div class="kpi-value ${delStats.unf>0?'org':''}">${delStats.unf}</div><div class="kpi-sub">Not fully delivered</div></div>
     <div class="kpi-card ${outCount+critCount>0?'c-mku':'c-grn'}"><div class="kpi-icon ${outCount+critCount>0?'mku':'grn'}">${outCount+critCount>0?'🔴':'✅'}</div><div class="kpi-label">Stock Alerts</div><div class="kpi-value ${outCount+critCount>0?'mku':''}">${outCount+critCount}</div><div class="kpi-sub">${outCount} out · ${critCount} low</div></div>
     <div class="kpi-card c-gray"><div class="kpi-icon gray">📦</div><div class="kpi-label">Active SKUs</div><div class="kpi-value">${stkSum?(stkSum.mku_total+stkSum.mks_total):stk.length}</div><div class="kpi-sub">Latest snapshot</div></div>`;
 }
@@ -280,7 +294,7 @@ function renderTarget(){
     <tbody>${areas.map(a=>{const p=a.pct,cls=badgeCls(p);
       const prevP=_prevAreaMap[a.area];
       const delta=prevP!=null?p-prevP:null;
-      const growthHtml=delta!=null&&delta!==0?`<span style="font-size:.6rem;font-weight:700;color:${delta>0?'var(--grn)':'var(--mku)'};margin-left:4px">${delta>0?'↑':'↓'}${Math.abs(delta)}pp</span>`:'';
+      const growthHtml=delta!=null&&delta!==0?`<span style="font-size:.6rem;font-weight:700;color:${delta>0?'var(--grn)':'var(--mku)'};margin-left:4px">${delta>0?'↑':'↓'}${Math.abs(delta)}%</span>`:'';
       return`<tr>
       <td style="font-weight:600">${a.area}</td><td style="color:var(--txt2);font-size:.68rem">${a.sales}</td>
       <td class="num">${fmtRp(a.food_ach)}</td><td class="num">${fmtRp(a.bev_ach)}</td>
@@ -657,7 +671,13 @@ function renderMoM(){
   const curRate=curDN>0?curRev/curDN:0,prevRate=prevDN>0?prevRev/prevDN:0;
   const rateChg=prevRate>0?Math.round((curRate-prevRate)/prevRate*100):0;
   const col=rateChg>=0?'var(--grn)':'var(--mku)';
-  momEl.innerHTML=`<div class="card" style="margin-bottom:14px"><div class="card-hdr"><div class="card-title"><div class="ci mks">📈</div>Month-on-Month Run Rate</div><span class="card-sub">${prevMo.label||prevKey} → ${curMo.label||curKey}</span></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px"><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${prevMo.label||prevKey}</div><div style="font-size:1rem;font-weight:800">${fmtRp(prevRev)}</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(prevRate)}/day · ${prevDN} days</div></div><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${curMo.label||curKey} (${curDN} days)</div><div style="font-size:1rem;font-weight:800">${fmtRp(curRev)}</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day</div></div><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">Run Rate Change</div><div style="font-size:1.4rem;font-weight:800;color:${col}">${rateChg>=0?'▲':'▼'} ${Math.abs(rateChg)}%</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day vs ${fmtRp(prevRate)}/day</div></div><div style="text-align:center;padding:12px;background:var(--mks-l);border-radius:10px;border:1px solid #c7d8fc"><div style="font-size:.6rem;font-weight:700;color:var(--mks);text-transform:uppercase;margin-bottom:6px">Projected Month-End</div><div style="font-size:1rem;font-weight:800;color:var(--mks)">${fmtRp(curRate*curDIM)}</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">At current pace · ${curDIM} days</div></div></div></div>`;
+  const projRev=curRate*curDIM;
+  const curTgt=Object.values((curMo.targets_by_date||{})[curDates[curDates.length-1]]?.targets||{}).reduce((s,t)=>s+(t.target||0),0)||0;
+  const projPct=curTgt>0?Math.round(projRev/curTgt*100):0;
+  const daysLeft=curDIM-curDN;
+  const reqPace=curTgt>0&&daysLeft>0?Math.round((curTgt-curRev)/daysLeft):0;
+  const projCol=projPct>=100?'var(--grn)':projPct>=80?'var(--org)':'var(--mku)';
+  momEl.innerHTML=`<div class="card" style="margin-bottom:14px"><div class="card-hdr"><div class="card-title"><div class="ci mks">📈</div>Month-on-Month Run Rate</div><span class="card-sub">${prevMo.label||prevKey} → ${curMo.label||curKey}</span></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px"><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${prevMo.label||prevKey}</div><div style="font-size:1rem;font-weight:800">${fmtRp(prevRev)}</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(prevRate)}/day · ${prevDN} days</div></div><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${curMo.label||curKey} (${curDN} days)</div><div style="font-size:1rem;font-weight:800">${fmtRp(curRev)}</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day</div></div><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">Run Rate Change</div><div style="font-size:1.4rem;font-weight:800;color:${col}">${rateChg>=0?'▲':'▼'} ${Math.abs(rateChg)}%</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day vs ${fmtRp(prevRate)}/day</div></div><div style="text-align:center;padding:12px;background:var(--mks-l);border-radius:10px;border:1px solid #c7d8fc"><div style="font-size:.6rem;font-weight:700;color:var(--mks);text-transform:uppercase;margin-bottom:6px">Projected Month-End</div><div style="font-size:1.1rem;font-weight:800;color:${projCol}">${fmtRp(projRev)}</div><div style="font-size:.7rem;font-weight:800;color:${projCol};margin-top:2px">${projPct}% of target</div><div style="font-size:.6rem;color:var(--txt3);margin-top:3px">${reqPace>0?'Need '+fmtRp(reqPace)+'/day · ':''} ${daysLeft} days left</div></div></div></div>`;
 }
 
 // ── Business tab ──────────────────────────────────────────────────────────────
