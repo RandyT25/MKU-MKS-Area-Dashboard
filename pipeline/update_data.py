@@ -144,22 +144,37 @@ def compress_del(mku_list, mks_list):
 # ── Parsers ───────────────────────────────────────────────────────
 
 def parse_so(path, date_str):
+    # Auto-detect column offset (handles extra leading columns)
+    df_hdr = pd.read_excel(path, sheet_name="Sheet", header=None, nrows=1)
+    hdr = [str(v).strip().upper() if not pd.isna(v) else "" for v in df_hdr.iloc[0]]
+    offset = 0
+    for i, h in enumerate(hdr):
+        if "NO" in h and "SO" in h: offset = i; break
+        if h in ("NO.", "NO", "NOMOR"): offset = i; break
+    if offset == 0:
+        df_data = pd.read_excel(path, sheet_name="Sheet", header=None, skiprows=1, nrows=5)
+        for col_idx in range(min(4, len(df_data.columns))):
+            vals = df_data.iloc[:, col_idx].astype(str)
+            if vals.str.contains(r"SO-|/\d{4}/", regex=True, na=False).any():
+                offset = col_idx; break
+    print(f"    SO column offset: {offset}")
     df = pd.read_excel(path, sheet_name="Sheet", header=None, skiprows=1)
     rows = []
     for _, row in df.iterrows():
         r = list(row)
-        if pd.isna(r[0]) or pd.isna(r[1]): continue
-        rows.append({"date":date_str,"no_so":str(r[1]).strip(),
-            "division":str(r[2]).strip() if not pd.isna(r[2]) else "",
-            "customer":str(r[3]).strip() if not pd.isna(r[3]) else "",
-            "jt":str(r[4]).strip() if not pd.isna(r[4]) else "",
-            "sales":norm_sales(r[5]),
-            "product":str(r[6]).strip() if not pd.isna(r[6]) else "",
-            "so_pcs":fval(r[7]),"unit":str(r[8]).strip() if not pd.isna(r[8]) else "",
-            "fj_pcs":fval(r[9]),"revenue":fval(r[10]),"bs_so":fval(r[11]),
-            "type":str(r[12]).strip() if not pd.isna(r[12]) else "",
-            "status":str(r[13]).strip() if not pd.isna(r[13]) else "",
-            "notes":str(r[14]).strip() if not pd.isna(r[14]) else ""})
+        o = offset
+        if len(r) <= o+1: continue
+        if pd.isna(r[o]) and pd.isna(r[o+1]): continue
+        no_so_val = str(r[o]).strip() if not pd.isna(r[o]) else ""
+        if no_so_val.upper() in ("NO. SO","NO SO","NOMOR SO","NAN",""): continue
+        def s(i): return str(r[o+i]).strip() if o+i < len(r) and not pd.isna(r[o+i]) else ""
+        def v(i): return fval(r[o+i]) if o+i < len(r) else 0.0
+        rows.append({"date":date_str,
+            "no_so":s(0),"division":s(1),"customer":s(2),"jt":s(3),
+            "sales":norm_sales(s(4)),"product":s(5),
+            "so_pcs":v(6),"unit":s(7),"fj_pcs":v(8),
+            "revenue":v(9),"bs_so":v(10),
+            "type":s(11),"status":s(12),"notes":s(13)})
     if len(rows) < 10:
         raise ValueError(f"SO file has only {len(rows)} rows — wrong sheet?")
     return rows
