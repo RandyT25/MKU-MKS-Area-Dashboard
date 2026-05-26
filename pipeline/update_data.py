@@ -173,7 +173,7 @@ def parse_so(path, date_str):
             "no_so":s(0),"division":s(1),"customer":s(2),"jt":s(3),
             "sales":norm_sales(s(4)),"product":s(5),
             "so_pcs":v(6),"unit":s(7),"fj_pcs":v(8),
-            "revenue":v(9),"bs_so":v(10),
+            "revenue":v(10),"bs_so":v(10),
             "type":s(11),"status":s(12),"notes":s(13)})
     if len(rows) < 10:
         raise ValueError(f"SO file has only {len(rows)} rows — wrong sheet?")
