@@ -210,6 +210,30 @@ def parse_delivery(path):
             "ket":"UNFULFILLED" if ket_raw.upper().startswith("UN") else "FULFILLED"})
     return rows
 
+def get_cumulative_so_rev(months_data, date_str):
+    """Get cumulative SO revenue per sales rep up to and including date_str."""
+    mk = date_str[:7]
+    mo = months_data.get(mk, {})
+    ss = mo.get("so_summary", {})
+    dates_in_month = sorted(d for d in ss if d <= date_str)
+    rep_rev = {}
+    for d in dates_in_month:
+        for rep, rev in (ss[d].get("rep_rev", {})).items():
+            rep_rev[rep] = rep_rev.get(rep, 0) + rev
+    return rep_rev
+
+def get_cumulative_so_rev(months_data, date_str):
+    """Get cumulative SO revenue per sales rep up to and including date_str."""
+    mk = date_str[:7]
+    mo = months_data.get(mk, {})
+    ss = mo.get("so_summary", {})
+    dates_in_month = sorted(d for d in ss if d <= date_str)
+    rep_rev = {}
+    for d in dates_in_month:
+        for rep, rev in (ss[d].get("rep_rev", {})).items():
+            rep_rev[rep] = rep_rev.get(rep, 0) + rev
+    return rep_rev
+
 def parse_targets(path, date_str):
     dt = datetime.strptime(date_str, "%Y-%m-%d")
     sheet_name = MONTH_SHEET[dt.month]
@@ -529,8 +553,9 @@ def main():
         # Store so_summary for every date (compressed)
         m["so_summary"][date_str] = compress_so(so_rows)
 
-        # Targets for every date
-        m["targets_by_date"][date_str] = targets_entry
+        # Targets for every date — only save if not already stored (preserve historical snapshots)
+        if date_str not in m["targets_by_date"]:
+            m["targets_by_date"][date_str] = targets_entry
 
         if is_latest:
             # Latest date: keep full data for live dashboard
