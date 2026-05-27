@@ -237,18 +237,17 @@ function renderKPIs(){
     const s=getSummary(activeDate);mkuRev=s.mku_rev||0;mksRev=s.mks_rev||0;
   }
   document.getElementById('kpi-strip').innerHTML=`
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
-    <div class="kpi-card c-mks"><div class="kpi-icon mks">📊</div><div class="kpi-label">Month Achievement</div><div class="kpi-value mks">${fmtRp(totalRev)}</div>${prevD&&prevPencRev>0?growthArr(totalRev,prevPencRev):''}<div class="kpi-sub">Cumulative · ${dateLabel}</div></div>
-    <div class="kpi-card c-grn"><div class="kpi-icon grn">💰</div><div class="kpi-label">Today's Sales</div><div class="kpi-value grn">${fmtRp(dailyRev)}</div>${prevD?growthArr(dailyRev,_dailyPrev.rev||0):''}<div class="kpi-sub">${dailyCnt} orders · ${dailyLbl}</div></div>
-    <div class="kpi-card c-mku"><div class="kpi-icon mku">🏢</div><div class="kpi-label">MKU Today</div><div class="kpi-value mku">${fmtRp(dailyMku)}</div>${prevD?growthArr(dailyMku,_dailyPrev.mku_rev||0):''}<div class="kpi-sub">MKU Bali</div></div>
-    <div class="kpi-card c-mks"><div class="kpi-icon mks">🏢</div><div class="kpi-label">MKS Today</div><div class="kpi-value mks">${fmtRp(dailyMks)}</div>${prevD?growthArr(dailyMks,_dailyPrev.mks_rev||0):''}<div class="kpi-sub">MKS Bali</div></div>
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
-    <div class="kpi-card c-grn"><div class="kpi-icon grn">🚚</div><div class="kpi-label">Fulfilment</div><div class="kpi-value grn">${delStats.tot>0?pct(delStats.ful,delStats.tot):'-'}%</div><div class="kpi-sub">${delStats.ful} of ${delStats.tot}</div></div>
-    <div class="kpi-card ${outCount+critCount>0?'c-mku':'c-grn'}"><div class="kpi-icon ${outCount+critCount>0?'mku':'grn'}">${outCount+critCount>0?'🔴':'✅'}</div><div class="kpi-label">Stock Alerts</div><div class="kpi-value ${outCount+critCount>0?'mku':''}">${outCount+critCount}</div><div class="kpi-sub">${outCount} out · ${critCount} low</div></div>
-    <div class="kpi-card c-gray"><div class="kpi-icon gray">📦</div><div class="kpi-label">Active SKUs</div><div class="kpi-value">${stkSum?(stkSum.mku_total+stkSum.mks_total):stk.length}</div><div class="kpi-sub">Latest snapshot</div></div>
-  </div>
-`;
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
+<div class="kpi-card c-mks"><div class="kpi-icon mks">📊</div><div class="kpi-label">Month Achievement</div><div class="kpi-value mks">${fmtRp(totalRev)}</div>${prevD&&prevPencRev>0?growthArr(totalRev,prevPencRev):''}<div class="kpi-sub">Cumulative · ${dateLabel}</div></div>
+<div class="kpi-card c-grn"><div class="kpi-icon grn">💰</div><div class="kpi-label">Today's Sales</div><div class="kpi-value grn">${fmtRp(dailyRev)}</div>${prevD?growthArr(dailyRev,_dailyPrev.rev||0):''}<div class="kpi-sub">${dailyCnt} orders · ${dailyLbl}</div></div>
+<div class="kpi-card c-mku"><div class="kpi-icon mku">🏢</div><div class="kpi-label">MKU Today</div><div class="kpi-value mku">${fmtRp(dailyMku)}</div>${prevD?growthArr(dailyMku,_dailyPrev.mku_rev||0):''}<div class="kpi-sub">MKU Bali</div></div>
+<div class="kpi-card c-mks"><div class="kpi-icon mks">🏢</div><div class="kpi-label">MKS Today</div><div class="kpi-value mks">${fmtRp(dailyMks)}</div>${prevD?growthArr(dailyMks,_dailyPrev.mks_rev||0):''}<div class="kpi-sub">MKS Bali</div></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
+<div class="kpi-card c-grn"><div class="kpi-icon grn">🚚</div><div class="kpi-label">Fulfilment</div><div class="kpi-value grn">${delStats.tot>0?pct(delStats.ful,delStats.tot):'-'}%</div><div class="kpi-sub">${delStats.ful} of ${delStats.tot}</div></div>
+<div class="kpi-card ${outCount+critCount>0?'c-mku':'c-grn'}"><div class="kpi-icon ${outCount+critCount>0?'mku':'grn'}">${outCount+critCount>0?'🔴':'✅'}</div><div class="kpi-label">Stock Alerts</div><div class="kpi-value ${outCount+critCount>0?'mku':''}">${outCount+critCount}</div><div class="kpi-sub">${outCount} out · ${critCount} low</div></div>
+<div class="kpi-card c-gray"><div class="kpi-icon gray">📦</div><div class="kpi-label">Active SKUs</div><div class="kpi-value">${stkSum?(stkSum.mku_total+stkSum.mks_total):stk.length}</div><div class="kpi-sub">Latest snapshot</div></div>
+</div>`
 }
 
 function renderTarget(){
