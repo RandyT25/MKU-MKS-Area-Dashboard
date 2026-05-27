@@ -668,7 +668,7 @@ function renderMoM(){
   let curRev=0,prevRev=0;
   Object.values(curMo.so_summary||{}).forEach(s=>curRev+=s.rev||0);
   Object.values(prevMo.so_summary||{}).forEach(s=>prevRev+=s.rev||0);
-  const curRate=curDN>0?curRev/curDN:0,prevRate=prevDN>0?prevRev/prevDN:0;
+  const curRate=curDN>0?curRev/curDN:0,prevRate=prevDates.length>0?prevRev/prevDates.length:0;
   const rateChg=prevRate>0?Math.round((curRate-prevRate)/prevRate*100):0;
   const col=rateChg>=0?'var(--grn)':'var(--mku)';
   const projRev=curRate*curDIM;
