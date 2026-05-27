@@ -709,14 +709,17 @@ function renderMoM(){
   const curRate=curDN>0?curRev/curDN:0,prevRate=prevDates.length>0?prevRev/prevDates.length:0;
   const rateChg=prevRate>0?Math.round((curRate-prevRate)/prevRate*100):0;
   const col=rateChg>=0?'var(--grn)':'var(--mku)';
-  const projRev=curRate*curDIM;
   const curTgt=Object.values((curMo.targets_by_date||{})[curDates[curDates.length-1]]?.targets||{}).reduce((s,t)=>s+(t.target||0),0)||0;
-  const projPct=curTgt>0?Math.round(projRev/curTgt*100):0;
   const _projY=parseInt(curKey.split('-')[0]),_projM=parseInt(curKey.split('-')[1]);
+  const _monthStart=curKey+'-01';
   const _projEnd=new Date(_projY,_projM,0).toISOString().slice(0,10);
   const _projStart=curKey+'-'+String(curDN+1).padStart(2,'0');
+  const _elapsedWork=_workDays(_monthStart,curDates[curDates.length-1]);
   const daysLeft=curDN<curDIM?_workDays(_projStart,_projEnd):0;
+  const curRateWork=_elapsedWork>0?curRev/_elapsedWork:0;
+  const projRev=curRev+(curRateWork*daysLeft);
   const reqPace=curTgt>0&&daysLeft>0?Math.round((curTgt-curRev)/daysLeft):0;
+  const projPct=curTgt>0?Math.round(projRev/curTgt*100):0;
   const projCol=projPct>=100?'var(--grn)':projPct>=80?'var(--org)':'var(--mku)';
   momEl.innerHTML=`<div class="card" style="margin-bottom:14px"><div class="card-hdr"><div class="card-title"><div class="ci mks">📈</div>Month-on-Month Run Rate</div><span class="card-sub">${prevMo.label||prevKey} → ${curMo.label||curKey}</span></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px"><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${prevMo.label||prevKey}</div><div style="font-size:1rem;font-weight:800">${fmtRp(prevRev)}</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(prevRate)}/day · ${prevDates.length} days</div></div><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${curMo.label||curKey} (${curDN} days)</div><div style="font-size:1rem;font-weight:800">${fmtRp(curRev)}</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day</div></div><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">Run Rate Change</div><div style="font-size:1.4rem;font-weight:800;color:${col}">${rateChg>=0?'▲':'▼'} ${Math.abs(rateChg)}%</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day vs ${fmtRp(prevRate)}/day</div></div><div style="text-align:center;padding:12px;background:var(--mks-l);border-radius:10px;border:1px solid #c7d8fc"><div style="font-size:.6rem;font-weight:700;color:var(--mks);text-transform:uppercase;margin-bottom:6px">Projected Month-End</div><div style="font-size:1.1rem;font-weight:800;color:${projCol}">${fmtRp(projRev)}</div><div style="font-size:.7rem;font-weight:800;color:${projCol};margin-top:2px">${projPct}% of target</div><div style="font-size:.6rem;color:var(--txt3);margin-top:3px">${reqPace>0?'Need '+fmtRp(reqPace)+'/day · ':''} ${daysLeft} days left</div></div></div></div>`;
 }
