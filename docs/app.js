@@ -209,7 +209,7 @@ function renderKPIs(){
   const dateLabel=activeDate==='ALL'?(RAW.dates.length+' days'):fmtD(activeDate);
   // Daily growth vs previous date
   const allDates=RAW.dates||[];
-  const curIdx=activeDate==='ALL'?allDates.length-1:allDates.indexOf(activeDate);
+  const curIdx=activeDate==='ALL'?-1:allDates.indexOf(activeDate);
   const prevD=curIdx>0?allDates[curIdx-1]:null;
   const prevS=prevD?getSummary(prevD):{rev:0,mku_rev:0,mks_rev:0};
   const curS=activeDate==='ALL'?{rev:agg.rev,mku_rev:agg.mku_rev||Object.entries(agg.rep_rev).filter(([k])=>(RAW.so.find(r=>r.sales===k)||{}).division==='MKU Bali').reduce((s,[,v])=>s+v,0),mks_rev:agg.mks_rev||0}:getSummary(activeDate);
