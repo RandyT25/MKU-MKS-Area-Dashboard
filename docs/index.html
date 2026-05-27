@@ -193,7 +193,7 @@ _applyMonth(_mk);
   s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
   s.onload = function() {
     var a = document.createElement('script');
-    a.src='app.js';a.onload=function(){if(typeof buildMonthMenu==='function')buildMonthMenu();var c=document.createElement('script');c.src='customers.js';document.body.appendChild(c);};
+    a.src='app.js';a.onload=function(){if(typeof buildMonthMenu==='function')buildMonthMenu();};
     document.body.appendChild(a);
   };
   document.body.appendChild(s);
