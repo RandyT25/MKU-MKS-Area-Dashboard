@@ -703,10 +703,19 @@ function renderMoM(){
   const curDN=curDates.length?parseInt(curDates[curDates.length-1].split('-')[2]):1;
   const prevDN=prevDates.length?parseInt(prevDates[prevDates.length-1].split('-')[2]):1;
   const curDIM=new Date(parseInt(curKey.split('-')[0]),parseInt(curKey.split('-')[1]),0).getDate();
-  let curRev=0,prevRev=0;
-  Object.values(curMo.so_summary||{}).forEach(s=>curRev+=s.rev||0);
-  Object.values(prevMo.so_summary||{}).forEach(s=>prevRev+=s.rev||0);
-  const curRate=curDN>0?curRev/curDN:0,prevRate=prevDates.length>0?prevRev/prevDates.length:0;
+  // Use pencapaian totals (Food+Bev+Nestle) for MoM — matches management reporting
+  const _curLastDate=curDates[curDates.length-1];
+  const _prevLastDate=prevDates[prevDates.length-1];
+  const _curT=Object.values((curMo.targets_by_date||{})[_curLastDate]?.targets||{});
+  const _prevT=Object.values((prevMo.targets_by_date||{})[_prevLastDate]?.targets||{});
+  const curRev=_curT.reduce((s,t)=>s+(t.achievement||0),0);
+  const prevRev=_prevT.reduce((s,t)=>s+(t.achievement||0),0);
+  const _curMonthStart=curKey+'-01';
+  const _prevMonthStart=prevKey+'-01';
+  const _curElapsed=_workDays(_curMonthStart,_curLastDate);
+  const _prevElapsed=_workDays(_prevMonthStart,_prevLastDate);
+  const curRate=_curElapsed>0?curRev/_curElapsed:0;
+  const prevRate=_prevElapsed>0?prevRev/_prevElapsed:0;
   const rateChg=prevRate>0?Math.round((curRate-prevRate)/prevRate*100):0;
   const col=rateChg>=0?'var(--grn)':'var(--mku)';
   const curTgt=Object.values((curMo.targets_by_date||{})[curDates[curDates.length-1]]?.targets||{}).reduce((s,t)=>s+(t.target||0),0)||0;
