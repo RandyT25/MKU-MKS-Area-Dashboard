@@ -160,12 +160,13 @@ def parse_so(path, date_str):
     # Find key columns by name
     col_map = {}
     for i, h in enumerate(hdr):
-        if h in ("NO SO","NO. SO","NOMOR SO") or ("NO" in h and "SO" in h and no_so_col is None): col_map["no_so"]=i
+        if h in ("NO SO","NO. SO","NOMOR SO","NO SO ") or h=="NO SO": col_map["no_so"]=i
+        elif "NO" in h and "SO" in h and "TGL" not in h and "no_so" not in col_map: col_map["no_so"]=i
         elif "DIVISI" in h or "DIVISION" in h: col_map["division"]=i
         elif "CUSTOMER" in h or "NAMA CUST" in h: col_map["customer"]=i
         elif "SYARAT" in h or h=="JT": col_map["jt"]=i
         elif "SALES" in h and "NO" not in h: col_map["sales"]=i
-        elif "KODE" in h and "BRG" in h: col_map["product"]=i
+        elif "KODE" in h: col_map["product"]=i
         elif "NAMA BRG" in h or "NAMA BARANG" in h: col_map["product_name"]=i
         elif ("SO" in h and "PCS" in h) and "BS" not in h and "FJ" not in h: col_map["so_pcs"]=i
         elif "SATUAN" in h or h=="UNIT": col_map["unit"]=i
