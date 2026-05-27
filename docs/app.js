@@ -2,6 +2,19 @@
 
 let company='ALL', stockFilter='all', activeDate='ALL', charts={};
 
+const _HOLIDAYS=['2026-01-01','2026-01-16','2026-02-17','2026-03-19','2026-03-21','2026-03-22',
+  '2026-04-03','2026-05-01','2026-05-14','2026-05-27','2026-05-31','2026-06-01'];
+function _workDays(fromDate,toDate){
+  let cnt=0,d=new Date(fromDate+'T00:00:00');
+  const end=new Date(toDate+'T00:00:00');
+  while(d<=end){
+    const ds=d.toISOString().slice(0,10);
+    if(d.getDay()!==0&&!_HOLIDAYS.includes(ds))cnt++;
+    d.setDate(d.getDate()+1);
+  }
+  return cnt;
+}
+
 const fmtRp=n=>{if(n>=1e9)return'Rp '+(n/1e9).toFixed(1)+'B';if(n>=1e6)return'Rp '+(n/1e6).toFixed(1)+'M';if(n>=1e3)return'Rp '+(n/1e3).toFixed(0)+'K';return'Rp '+Math.round(n).toLocaleString();};
 const fmtQ=n=>{const r=Math.round(n*100)/100;return r%1===0?r.toFixed(0):r.toFixed(1);};
 const pct=(a,t)=>t>0?Math.round(a/t*100):0;
@@ -261,19 +274,7 @@ function renderTarget(){
   const lastDate=activeDate==='ALL'?RAW.latest:activeDate;
   const dayNum=parseInt(lastDate.split('-')[2]);
   const daysInMonth=new Date(parseInt(lastDate.split('-')[0]),parseInt(lastDate.split('-')[1]),0).getDate();
-  // Count working days (exclude Sundays + Indonesian national holidays)
-  const _HOLIDAYS=['2026-01-01','2026-01-16','2026-02-17','2026-03-19','2026-03-21','2026-03-22',
-    '2026-04-03','2026-05-01','2026-05-14','2026-05-27','2026-05-31','2026-06-01'];
-  function _workDays(fromDate,toDate){
-    let cnt=0,d=new Date(fromDate+'T00:00:00');
-    const end=new Date(toDate+'T00:00:00');
-    while(d<=end){
-      const ds=d.toISOString().slice(0,10);
-      if(d.getDay()!==0&&!_HOLIDAYS.includes(ds))cnt++;
-      d.setDate(d.getDate()+1);
-    }
-    return cnt;
-  }
+
   const _y=parseInt(lastDate.split('-')[0]),_m=parseInt(lastDate.split('-')[1]);
   const _monthStart=_y+'-'+String(_m).padStart(2,'0')+'-01';
   const _totalWorkDays=_workDays(_monthStart,new Date(_y,_m,0).toISOString().slice(0,10));
