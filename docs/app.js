@@ -501,6 +501,19 @@ function renderReps(){
     });
   });
 
+  // Insight banner
+  const _rInsEl=document.getElementById('reps-insight');
+  if(_rInsEl){
+    const topRep=reps[0];
+    const belowYest=reps.filter(([n,rev])=>_prevD&&(_prevRR[n]||0)>0&&rev<_prevRR[n]).length;
+    const droppedCount=reps.filter(([n])=>Object.entries(prevCustsByRep[n]||{}).some(([c])=>!todayCusts.has(c))).length;
+    _rInsEl.innerHTML=`<div style="background:var(--bg);border:1px solid var(--bdr);border-radius:10px;padding:10px 16px;margin-bottom:12px;font-size:.75rem;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <span>🏆 <strong>Top rep:</strong> ${topRep?topRep[0]+' · '+fmtRp(topRep[1]):'—'}</span>
+      ${belowYest>0?`<span style="color:var(--mku)">📉 <strong>${belowYest} rep${belowYest>1?'s':''}</strong> below yesterday</span>`:'<span style="color:var(--grn)">📈 All reps up vs yesterday</span>'}
+      ${droppedCount>0?`<span style="color:var(--org)">⚠️ <strong>${droppedCount} rep${droppedCount>1?'s':''}</strong> with dropped customers</span>`:'<span style="color:var(--grn)">✅ No dropped customers</span>'}
+    </div>`;
+  }
+
   document.getElementById('tbl-reps').innerHTML=`<thead><tr>
     <th>#</th><th>Rep</th><th>Div</th>
     <th class="num">Revenue</th>
