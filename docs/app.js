@@ -880,7 +880,23 @@ function renderBusiness(){
       const months=CUSTOMERS.months||[];
       const rows=Object.values(areas).sort((a,b)=>b.total-a.total);
       const cols=months.slice(-3);
-      el1.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci grn">📍</div>Area Performance — Monthly Revenue</div></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Area</th><th>Div</th>${cols.map(m=>`<th class="num">${m.slice(0,3)}</th>`).join('')}<th class="num">Total</th><th>Trend</th></tr></thead><tbody>${rows.map(a=>{const vals=cols.map(m=>a.monthly[m]||0);const last=vals[vals.length-1],prev=vals[vals.length-2]||0;const trend=prev>0?Math.round((last-prev)/prev*100):0;const arrow=trend>0?'<span style="color:var(--grn)">▲'+trend+'%</span>':trend<0?'<span style="color:var(--mku)">▼'+Math.abs(trend)+'%</span>':'—';return`<tr><td style="font-weight:600;font-size:.7rem">${a.name}</td><td style="font-size:.63rem;color:var(--txt3)">${(a.division||'').replace(' Bali','')}</td>${vals.map(v=>`<td class="num">${fmtRp(v)}</td>`).join('')}<td class="num" style="font-weight:700">${fmtRp(a.total)}</td><td>${arrow}</td></tr>`;}).join('')}</tbody></table></div></div>`;
+
+      // Insight: total customers, active this month, dropped off
+      const allCusts=Object.values(CUSTOMERS.by_rep||{}).flatMap(r=>Object.values(r.customers||{}));
+      const latestMon=months[months.length-1];
+      const prevMon=months[months.length-2];
+      const activeNow=allCusts.filter(c=>c.last_month===latestMon).length;
+      const droppedOff=allCusts.filter(c=>c.last_month&&c.last_month!==latestMon&&c.monthly[prevMon]>0).length;
+      const topCust=allCusts.sort((a,b)=>b.total-a.total)[0];
+
+      el1.innerHTML=`
+      <div style="background:var(--bg);border:1px solid var(--bdr);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;gap:24px;flex-wrap:wrap;font-size:.75rem">
+        <span>👥 <strong>${allCusts.length}</strong> total customers</span>
+        <span style="color:var(--grn)">✅ <strong>${activeNow}</strong> active in ${latestMon}</span>
+        ${droppedOff>0?`<span style="color:var(--mku)">⚠️ <strong>${droppedOff}</strong> dropped off vs last month</span>`:''}
+        ${topCust?`<span>🏆 Top: <strong>${topCust.name}</strong> · ${fmtRp(topCust.total)}</span>`:''}
+      </div>
+      <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci grn">📍</div>Area Performance — Monthly Revenue</div></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Area</th><th>Div</th>${cols.map(m=>`<th class="num">${m.slice(0,3)}</th>`).join('')}<th class="num">Total</th><th>Trend</th></tr></thead><tbody>${rows.map(a=>{const vals=cols.map(m=>a.monthly[m]||0);const last=vals[vals.length-1],prev=vals[vals.length-2]||0;const trend=prev>0?Math.round((last-prev)/prev*100):0;const col=trend>0?'var(--grn)':trend<0?'var(--mku)':'var(--txt3)';const arrow=trend>0?'▲'+trend+'%':trend<0?'▼'+Math.abs(trend)+'%':'—';return`<tr><td style="font-weight:600;font-size:.7rem">${a.name}</td><td style="font-size:.63rem;color:var(--txt3)">${(a.division||'').replace(' Bali','')}</td>${vals.map(v=>`<td class="num">${fmtRp(v)}</td>`).join('')}<td class="num" style="font-weight:700">${fmtRp(a.total)}</td><td style="font-weight:700;color:${col};font-size:.7rem">${arrow}</td></tr>`;}).join('')}</tbody></table></div></div>`;
     }
     const el2=document.getElementById('biz-seg');
     if(el2&&CUSTOMERS){
@@ -902,7 +918,9 @@ function renderCustomerSearch(q){
   Object.entries(byRep).forEach(([rep,rd])=>{Object.entries(rd.customers||{}).forEach(([code,c])=>{all.push({code,rep,...c});});});
   if(q)all=all.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())||c.rep.toLowerCase().includes(q.toLowerCase()));
   all.sort((a,b)=>b.total-a.total);
-  el.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">👥</div>Customer Profiles</div></div><div style="margin-bottom:12px"><input type="text" value="${q||''}" placeholder="Search customer or rep..." oninput="renderCustomerSearch(this.value)" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:.75rem;font-family:inherit"></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Customer</th><th>Rep</th><th>Segment</th><th class="num">Total Spend</th><th>Last Order</th></tr></thead><tbody>${all.slice(0,50).map(c=>`<tr><td style="font-weight:600;font-size:.7rem">${c.name}</td><td style="font-size:.65rem;color:var(--txt2)">${c.rep}</td><td style="font-size:.63rem">${c.group||'—'}</td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(c.total)}</td><td style="font-size:.65rem;color:${c.last_month==='May'?'var(--grn)':'var(--org)'}">${c.last_month||'—'}</td></tr>`).join('')}</tbody></table></div></div>`;
+  const _latMon=(CUSTOMERS.months||[]).slice(-1)[0]||'May';
+  const _prevMon=(CUSTOMERS.months||[]).slice(-2,-1)[0]||'';
+  el.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">👥</div>Customer Profiles</div><span class="card-sub">${all.length} customers</span></div><div style="margin-bottom:12px;padding:12px 16px 0"><input type="text" value="${q||''}" placeholder="Search customer or rep..." oninput="renderCustomerSearch(this.value)" style="width:100%;padding:8px 12px;border:1px solid var(--bdr);border-radius:8px;font-size:.75rem;font-family:inherit"></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Customer</th><th>Rep</th><th>Segment</th><th class="num">Total Spend</th><th>Last Order</th><th>Status</th></tr></thead><tbody>${all.slice(0,50).map(c=>{const isActive=c.last_month===_latMon;const isRecent=c.last_month===_prevMon;const statusCol=isActive?'var(--grn)':isRecent?'var(--org)':'var(--mku)';const statusLbl=isActive?'Active':isRecent?'Last month':'Inactive';return`<tr><td style="font-weight:600;font-size:.7rem">${c.name}</td><td style="font-size:.65rem;color:var(--txt2)">${c.rep}</td><td style="font-size:.63rem">${c.group||'—'}</td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(c.total)}</td><td style="font-size:.65rem;color:var(--txt3)">${c.last_month||'—'}</td><td><span style="font-size:.6rem;font-weight:700;color:${statusCol};background:${isActive?'var(--grn-l)':isRecent?'var(--org-l)':'var(--mku-l)'};padding:2px 7px;border-radius:4px">${statusLbl}</span></td></tr>`;}).join('')}</tbody></table></div></div>`;
 }
 
 function switchTabBiz(){switchTab('biz');renderBusiness();}
