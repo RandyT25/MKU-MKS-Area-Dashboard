@@ -286,7 +286,7 @@ function renderTarget(){
   const _activeDateResolved=activeDate==='ALL'?RAW.latest:activeDate;
   const _curDIdx=_allDates.indexOf(_activeDateResolved);
   const _prevDate=_curDIdx>0?_allDates[_curDIdx-1]:null;
-  const _prevAreas=_prevDate?(RAW.targets_by_date[_prevDate]||{}).area_targets||[]:[];
+  const _activeMK=(_activeDateResolved||RAW.latest).slice(0,7);const _monthTbd=(RAW.months[_activeMK]||{}).targets_by_date||{};const _prevAreas=_prevDate?(_monthTbd[_prevDate]||{}).area_targets||[]:[];
   const _prevAreaMap={};_prevAreas.forEach(a=>{_prevAreaMap[a.area]=a.pct;});
 
   document.getElementById('tbl-area').innerHTML=`
