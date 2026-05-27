@@ -646,24 +646,80 @@ function renderAlerts(){
   let outCnt=outI.length,critCnt=critI.length+lowI.length;
   if(stkSum&&!isFullDay){outCnt=stkSum.mku_out+stkSum.mks_out;critCnt=stkSum.mku_crit+stkSum.mks_crit+stkSum.mku_low+stkSum.mks_low;}
 
+  const _totalAlerts=outCnt+critCnt+stats.unf;
   document.getElementById('alerts-summary').innerHTML=`
-    <div style="background:var(--mku-l);border:1px solid #fca5a5;border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px"><div style="font-size:1.4rem">🔴</div><div><div style="font-size:.63rem;font-weight:700;color:var(--mku);text-transform:uppercase;margin-bottom:3px">Out of Stock</div><div style="font-size:1.5rem;font-weight:800;color:var(--mku)">${outCnt}</div><div style="font-size:.63rem;color:var(--mku);opacity:.7">active SKUs at zero</div></div></div>
-    <div style="background:var(--org-l);border:1px solid #fcd34d;border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px"><div style="font-size:1.4rem">⚠️</div><div><div style="font-size:.63rem;font-weight:700;color:var(--org);text-transform:uppercase;margin-bottom:3px">Critical / Low</div><div style="font-size:1.5rem;font-weight:800;color:var(--org)">${critCnt}</div></div></div>
-    <div style="background:${stats.unf>0?'var(--org-l)':'var(--grn-l)'};border:1px solid ${stats.unf>0?'#fcd34d':'#6ee7b7'};border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px"><div style="font-size:1.4rem">${stats.unf>0?'🚚':'✅'}</div><div><div style="font-size:.63rem;font-weight:700;color:${stats.unf>0?'var(--org)':'var(--grn)'};text-transform:uppercase;margin-bottom:3px">Unfulfilled</div><div style="font-size:1.5rem;font-weight:800;color:${stats.unf>0?'var(--org)':'var(--grn)'}">${stats.unf}</div></div></div>`;
+    <div style="background:${outCnt>0?'var(--mku-l)':'var(--grn-l)'};border:1px solid ${outCnt>0?'var(--mku)':'var(--grn)'};border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px">
+      <div style="font-size:2rem">${outCnt>0?'🔴':'✅'}</div>
+      <div style="flex:1">
+        <div style="font-size:.6rem;font-weight:700;color:${outCnt>0?'var(--mku)':'var(--grn)'};text-transform:uppercase;letter-spacing:.05em">Out of Stock</div>
+        <div style="font-size:1.8rem;font-weight:800;line-height:1.1;color:${outCnt>0?'var(--mku)':'var(--grn)'}">${outCnt}</div>
+        <div style="font-size:.65rem;color:var(--txt3);margin-top:2px">${outCnt>0?'Action: reorder immediately':'All SKUs in stock'}</div>
+      </div>
+    </div>
+    <div style="background:${critCnt>0?'var(--org-l)':'var(--grn-l)'};border:1px solid ${critCnt>0?'var(--org)':'var(--grn)'};border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px">
+      <div style="font-size:2rem">${critCnt>0?'⚠️':'✅'}</div>
+      <div style="flex:1">
+        <div style="font-size:.6rem;font-weight:700;color:${critCnt>0?'var(--org)':'var(--grn)'};text-transform:uppercase;letter-spacing:.05em">Critical / Low</div>
+        <div style="font-size:1.8rem;font-weight:800;line-height:1.1;color:${critCnt>0?'var(--org)':'var(--grn)'}">${critCnt}</div>
+        <div style="font-size:.65rem;color:var(--txt3);margin-top:2px">${critCnt>0?'Action: plan reorder this week':'Stock levels healthy'}</div>
+      </div>
+    </div>
+    <div style="background:${stats.unf>0?'var(--org-l)':'var(--grn-l)'};border:1px solid ${stats.unf>0?'var(--org)':'var(--grn)'};border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px">
+      <div style="font-size:2rem">${stats.unf>0?'🚫':'✅'}</div>
+      <div style="flex:1">
+        <div style="font-size:.6rem;font-weight:700;color:${stats.unf>0?'var(--org)':'var(--grn)'};text-transform:uppercase;letter-spacing:.05em">Unfulfilled Orders</div>
+        <div style="font-size:1.8rem;font-weight:800;line-height:1.1;color:${stats.unf>0?'var(--org)':'var(--grn)'}">${stats.unf}</div>
+        <div style="font-size:.65rem;color:var(--txt3);margin-top:2px">${stats.unf>0?'Action: contact customers today':'All orders delivered'}</div>
+      </div>
+    </div>`;
 
-  // Get unfulfilled delivery issues
+  // Get unfulfilled delivery issues — read from correct nested path
   const unfI=[];
   (activeDate==='ALL'?RAW.dates:[activeDate]).forEach(d=>{
-    const dd=RAW.delivery_by_date[d];if(!dd)return;
+    const _mk=d.slice(0,7);const _mo=RAW.months[_mk]||{};
+    const _dbd=_mo.delivery_by_date||RAW.delivery_by_date||{};
+    const dd=_dbd[d];if(!dd)return;
     if(isLatest(d)){[...(dd.mku_full||[]),...(dd.mks_full||[])].filter(r=>r.ket==='UNFULFILLED').forEach(r=>unfI.push({...r,date:d}));}
     else{(dd.issues||[]).forEach(r=>unfI.push({...r,date:d}));}
   });
 
   const secs=[
-    {id:'a-out',ic:'🔴',tt:'Out of Stock — Active SKUs at Zero',cnt:outI.length,cc:outI.length?'red':'grn',items:outI.length?outI.map(s=>`<div class="al out"><span>🔴</span><div class="al-body"><strong>${s.name||s.n||''}</strong><br><span style="font-size:.68rem;color:var(--txt2)">${s.code||s.c||''} · Avg ${((s.avg3m||s.a)||0).toFixed(0)} ${s.unit||s.u||''}/mo</span></div><span class="al-co ${s.co.toLowerCase()}">${s.co}</span></div>`):['<p style="color:var(--txt3);font-size:.74rem;padding:4px 0">✅ No out-of-stock items</p>']},
-    {id:'a-crit',ic:'🚨',tt:'Critical — Less than 3 Days Left',cnt:critI.length,cc:critI.length?'red':'grn',items:critI.length?critI.map(s=>`<div class="al out"><span>🚨</span><div class="al-body"><strong>${s.name||s.n||''}</strong><br><span style="font-size:.68rem;color:var(--mku);font-weight:600">${fmtQ(s.saldo||s.s||0)} ${s.unit||s.u||''} · ${(s.buf||s.bf||0)>0?(s.buf||s.bf||0).toFixed(1)+' days':'<1 day'}</span></div><span class="al-co ${s.co.toLowerCase()}">${s.co}</span></div>`):['<p style="color:var(--txt3);font-size:.74rem;padding:4px 0">✅ No critical items</p>']},
-    {id:'a-low',ic:'⚠️',tt:'Low Stock — 3 to 7 Days Left',cnt:lowI.length,cc:lowI.length?'org':'grn',items:lowI.length?lowI.map(s=>`<div class="al warn"><span>⚠️</span><div class="al-body"><strong>${s.name||s.n||''}</strong><br><span style="font-size:.68rem;color:var(--org);font-weight:600">${fmtQ(s.saldo||s.s||0)} ${s.unit||s.u||''} · ${(s.buf||s.bf||0).toFixed(1)} days</span></div><span class="al-co ${s.co.toLowerCase()}">${s.co}</span></div>`):['<p style="color:var(--txt3);font-size:.74rem;padding:4px 0">✅ No low-stock items</p>']},
-    {id:'a-unf',ic:'🚫',tt:'Unfulfilled Deliveries — Not Sent',cnt:unfI.length,cc:unfI.length?'red':'grn',items:unfI.length?unfI.map(r=>`<div class="al out"><span>🚫</span><div class="al-body"><strong>${r.customer||'—'}</strong><br><span style="font-size:.68rem;color:var(--txt2)">${r.product||'—'} · <span style="color:var(--mku);font-weight:700">NOT DELIVERED</span></span></div><span class="al-co ${(r.co||'mks').toLowerCase()}">${r.co||'—'}</span></div>`):['<p style="color:var(--txt3);font-size:.74rem;padding:4px 0">✅ All orders sent</p>']},
+    {id:'a-out',ic:'🔴',tt:'Out of Stock — Reorder Immediately',cnt:outI.length,cc:outI.length?'red':'grn',items:outI.length?outI.map(s=>`
+      <div style="display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bg);gap:10px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--mku);flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name||''}</div>
+          <div style="font-size:.62rem;color:var(--txt3)">${s.code||''} · avg ${((s.avg3m||0)).toFixed(0)} ${s.unit||''}/mo</div>
+        </div>
+        <span style="font-size:.6rem;font-weight:700;background:var(--mku-l);color:var(--mku);padding:2px 7px;border-radius:4px;flex-shrink:0">${s.co}</span>
+      </div>`):['<div style="padding:12px;color:var(--grn);font-size:.74rem;text-align:center">✅ No out-of-stock items</div>']},
+    {id:'a-crit',ic:'🚨',tt:'Critical — Less Than 3 Days Left',cnt:critI.length,cc:critI.length?'red':'grn',items:critI.length?critI.map(s=>`
+      <div style="display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bg);gap:10px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--mku);flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name||''}</div>
+          <div style="font-size:.62rem;color:var(--mku);font-weight:600">${fmtQ(s.saldo||0)} ${s.unit||''} left · ${(s.buf||0)>0?(s.buf||0).toFixed(1)+' days':'<1 day'}</div>
+        </div>
+        <span style="font-size:.6rem;font-weight:700;background:var(--mku-l);color:var(--mku);padding:2px 7px;border-radius:4px;flex-shrink:0">${s.co}</span>
+      </div>`):['<div style="padding:12px;color:var(--grn);font-size:.74rem;text-align:center">✅ No critical items</div>']},
+    {id:'a-low',ic:'⚠️',tt:'Low Stock — 3 to 7 Days Left',cnt:lowI.length,cc:lowI.length?'org':'grn',items:lowI.length?lowI.map(s=>`
+      <div style="display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bg);gap:10px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--org);flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name||''}</div>
+          <div style="font-size:.62rem;color:var(--org);font-weight:600">${fmtQ(s.saldo||0)} ${s.unit||''} left · ${(s.buf||0).toFixed(1)} days</div>
+        </div>
+        <span style="font-size:.6rem;font-weight:700;background:var(--org-l);color:var(--org);padding:2px 7px;border-radius:4px;flex-shrink:0">${s.co}</span>
+      </div>`):['<div style="padding:12px;color:var(--grn);font-size:.74rem;text-align:center">✅ No low-stock items</div>']},
+    {id:'a-unf',ic:'🚫',tt:'Unfulfilled Deliveries — Contact Customers',cnt:unfI.length,cc:unfI.length?'red':'grn',items:unfI.length?unfI.map(r=>`
+      <div style="display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bg);gap:10px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--mku);flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.customer||'—'}</div>
+          <div style="font-size:.62rem;color:var(--txt3)">${r.product||'—'} · <span style="color:var(--mku);font-weight:700">not sent</span> · ${r.sales||'—'}</div>
+        </div>
+        <span style="font-size:.6rem;font-weight:700;background:${(r.co||'')=='MKU'?'var(--mku-l)':'var(--mks-l)'};color:${(r.co||'')=='MKU'?'var(--mku)':'var(--mks)'};padding:2px 7px;border-radius:4px;flex-shrink:0">${r.co||'—'}</span>
+      </div>`):['<div style="padding:12px;color:var(--grn);font-size:.74rem;text-align:center">✅ All orders delivered</div>']},
   ];
   document.getElementById('alerts-accordions').innerHTML=secs.map(s=>`<div class="accord" id="${s.id}"><div class="accord-hdr" onclick="tog('${s.id}')"><div class="accord-icon">${s.ic}</div><div class="accord-title">${s.tt}</div><span class="accord-count ${s.cc}">${s.cnt}</span><div class="accord-chev">▼</div></div><div class="accord-body"><div class="accord-inner">${s.items.join('')}</div></div></div>`).join('');
 }
