@@ -1,6 +1,6 @@
 // MKU & MKS Dashboard — app.js (Option C: compressed history)
 
-let company='ALL', stockFilter='all', activeDate=RAW.latest, charts={};
+let company='ALL', stockFilter='all', activeDate='ALL', charts={};
 
 const fmtRp=n=>{if(n>=1e9)return'Rp '+(n/1e9).toFixed(1)+'B';if(n>=1e6)return'Rp '+(n/1e6).toFixed(1)+'M';if(n>=1e3)return'Rp '+(n/1e3).toFixed(0)+'K';return'Rp '+Math.round(n).toLocaleString();};
 const fmtQ=n=>{const r=Math.round(n*100)/100;return r%1===0?r.toFixed(0):r.toFixed(1);};
@@ -18,7 +18,7 @@ function buildDT(){
   const mlbl_el=document.getElementById('m-date-dd-lbl');if(mlbl_el)mlbl_el.textContent=mlbl;
   const items=['ALL',...RAW.dates].map(d=>{
     const label=d==='ALL'?'All Days':fmtD(d)+(isLatest(d)?' ★':'');
-    return`<button class="date-dd-item ${activeDate===d?'active':''}" onclick="setDate('${d}')"><span class="ddi-dot"></span>${label}</button>`;
+    return`<button class="date-dd-item ${activeDate===d?'active':''}" onclick="setDate('${d}')" style="font-size:.65rem;padding:6px 12px">${label}</button>`;
   }).join('');
   ['date-dd-menu','m-date-dd-menu'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.innerHTML=items;
@@ -261,7 +261,24 @@ function renderTarget(){
   const lastDate=activeDate==='ALL'?RAW.latest:activeDate;
   const dayNum=parseInt(lastDate.split('-')[2]);
   const daysInMonth=new Date(parseInt(lastDate.split('-')[0]),parseInt(lastDate.split('-')[1]),0).getDate();
-  const timePct=Math.round(dayNum/daysInMonth*100);
+  // Count working days (exclude Sundays + Indonesian national holidays)
+  const _HOLIDAYS=['2026-01-01','2026-01-16','2026-02-17','2026-03-19','2026-03-21','2026-03-22',
+    '2026-04-03','2026-05-01','2026-05-14','2026-05-27','2026-05-31','2026-06-01'];
+  function _workDays(fromDate,toDate){
+    let cnt=0,d=new Date(fromDate+'T00:00:00');
+    const end=new Date(toDate+'T00:00:00');
+    while(d<=end){
+      const ds=d.toISOString().slice(0,10);
+      if(d.getDay()!==0&&!_HOLIDAYS.includes(ds))cnt++;
+      d.setDate(d.getDate()+1);
+    }
+    return cnt;
+  }
+  const _y=parseInt(lastDate.split('-')[0]),_m=parseInt(lastDate.split('-')[1]);
+  const _monthStart=_y+'-'+String(_m).padStart(2,'0')+'-01';
+  const _totalWorkDays=_workDays(_monthStart,new Date(_y,_m,0).toISOString().slice(0,10));
+  const _elapsedWorkDays=_workDays(_monthStart,lastDate);
+  const timePct=Math.round(_elapsedWorkDays/_totalWorkDays*100);
   const badgeCls=p=>p>=timePct?'b-grn':p>=(timePct*0.75)?'b-org':'b-red';
 
   document.getElementById('tgt-cats').innerHTML=`
@@ -308,6 +325,7 @@ function renderTarget(){
   const _prevDate=_curDIdx>0?_allDates[_curDIdx-1]:null;
   const _activeMK=(_activeDateResolved||RAW.latest).slice(0,7);const _monthTbd=(RAW.months[_activeMK]||{}).targets_by_date||{};const _prevAreas=_prevDate?(_monthTbd[_prevDate]||{}).area_targets||[]:[];
   const _prevAreaMap={};_prevAreas.forEach(a=>{_prevAreaMap[a.area]=a.pct;});
+  const _prevNestleArr=_prevDate?(RAW.months[_activeMK]?.targets_by_date?.[_prevDate]?.nestle_areas||null):null;
 
   document.getElementById('tbl-area').innerHTML=`
     <thead><tr><th>Area</th><th>Sales</th><th class="num">Food</th><th class="num">Bev</th><th class="num">Target Total</th><th class="num">Achieved</th><th>% <span style="font-weight:400;color:var(--txt3);font-size:.58rem">(on track ≥${timePct}%)</span></th></tr></thead>
@@ -326,17 +344,16 @@ function renderTarget(){
       <td class="num"><strong style="color:var(--grn)">${fmtRp(areas.reduce((s,a)=>s+a.bev_ach,0))}</strong></td>
       <td class="num">${fmtRp(areas.reduce((s,a)=>s+a.food_target+a.bev_target,0))}</td>
       <td class="num"><strong>${fmtRp(areas.reduce((s,a)=>s+a.food_ach+a.bev_ach,0))}</strong></td>
-      <td><span class="badge ${badgeCls(tp)}">${tp}%</span></td>
-    </tr></tfoot>`;
+      <td>${(()=>{const tp2=pct(areas.reduce((s,a)=>s+a.food_ach+a.bev_ach,0),areas.reduce((s,a)=>s+a.food_target+a.bev_target,0));const prevTotP=_prevDate?pct((_prevAreas.reduce((s,a)=>s+a.food_ach+a.bev_ach,0)),(_prevAreas.reduce((s,a)=>s+a.food_target+a.bev_target,0))):null;const td=prevTotP!=null?tp2-prevTotP:null;const tarr=td!=null&&td!==0?`<span style="font-size:.6rem;font-weight:700;color:${td>0?'var(--grn)':' var(--mku)'};margin-left:4px">${td>0?'↑':'↓'}${Math.abs(td)}%</span>`:'';return`<span class="badge ${badgeCls(tp2)}">${tp2}%</span>${tarr}`;})()}</td></tr></tfoot>`;
 
   document.getElementById('nestle-table').innerHTML=`
     <thead><tr><th>Channel</th><th>Sales</th><th class="num">Target</th><th class="num">Achieved</th><th>% <span style="font-weight:400;color:var(--txt3);font-size:.58rem">(on track ≥${timePct}%)</span></th></tr></thead>
-    <tbody>${(nestleA||[]).map(n=>{const p=pct(n.achievement,n.target),cls=badgeCls(p);return`<tr>
+    <tbody>${(nestleA||[]).map((n,ni)=>{const p=pct(n.achievement,n.target),cls=badgeCls(p);const prevN=(_prevAreaMap&&_prevNestleArr)?_prevNestleArr[ni]:null;const prevNP=prevN?pct(prevN.achievement,prevN.target):null;const ndelta=prevNP!=null?p-prevNP:null;const narrow=ndelta!=null&&ndelta!==0?`<span style="font-size:.6rem;font-weight:700;color:${ndelta>0?'var(--grn)':'var(--mku)'};margin-left:4px">${ndelta>0?'↑':'↓'}${Math.abs(ndelta)}%</span>`:'';return`<tr>
       <td style="font-weight:600">${n.area}</td>
       <td style="color:var(--txt2);font-size:.68rem">${n.sales||'—'}</td>
       <td class="num" style="color:var(--txt3)">${fmtRp(n.target)}</td>
       <td class="num" style="font-weight:700">${fmtRp(n.achievement)}</td>
-      <td><span class="badge ${cls}">${p}%</span></td></tr>`;}).join('')}</tbody>
+      <td><span class="badge ${cls}">${p}%</span>${narrow}</td></tr>`;}).join('')}</tbody>
     <tfoot><tr>
       <td colspan="2"><strong>GRAND TOTAL</strong></td>
       <td class="num">${fmtRp((nestleA||[]).reduce((s,n)=>s+n.target,0))}</td>
@@ -694,7 +711,10 @@ function renderMoM(){
   const projRev=curRate*curDIM;
   const curTgt=Object.values((curMo.targets_by_date||{})[curDates[curDates.length-1]]?.targets||{}).reduce((s,t)=>s+(t.target||0),0)||0;
   const projPct=curTgt>0?Math.round(projRev/curTgt*100):0;
-  const daysLeft=curDIM-curDN;
+  const _projY=parseInt(curKey.split('-')[0]),_projM=parseInt(curKey.split('-')[1]);
+  const _projEnd=new Date(_projY,_projM,0).toISOString().slice(0,10);
+  const _projStart=curKey+'-'+String(curDN+1).padStart(2,'0');
+  const daysLeft=curDN<curDIM?_workDays(_projStart,_projEnd):0;
   const reqPace=curTgt>0&&daysLeft>0?Math.round((curTgt-curRev)/daysLeft):0;
   const projCol=projPct>=100?'var(--grn)':projPct>=80?'var(--org)':'var(--mku)';
   momEl.innerHTML=`<div class="card" style="margin-bottom:14px"><div class="card-hdr"><div class="card-title"><div class="ci mks">📈</div>Month-on-Month Run Rate</div><span class="card-sub">${prevMo.label||prevKey} → ${curMo.label||curKey}</span></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px"><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${prevMo.label||prevKey}</div><div style="font-size:1rem;font-weight:800">${fmtRp(prevRev)}</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(prevRate)}/day · ${prevDates.length} days</div></div><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">${curMo.label||curKey} (${curDN} days)</div><div style="font-size:1rem;font-weight:800">${fmtRp(curRev)}</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day</div></div><div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px"><div style="font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;margin-bottom:6px">Run Rate Change</div><div style="font-size:1.4rem;font-weight:800;color:${col}">${rateChg>=0?'▲':'▼'} ${Math.abs(rateChg)}%</div><div style="font-size:.63rem;color:var(--txt3);margin-top:3px">${fmtRp(curRate)}/day vs ${fmtRp(prevRate)}/day</div></div><div style="text-align:center;padding:12px;background:var(--mks-l);border-radius:10px;border:1px solid #c7d8fc"><div style="font-size:.6rem;font-weight:700;color:var(--mks);text-transform:uppercase;margin-bottom:6px">Projected Month-End</div><div style="font-size:1.1rem;font-weight:800;color:${projCol}">${fmtRp(projRev)}</div><div style="font-size:.7rem;font-weight:800;color:${projCol};margin-top:2px">${projPct}% of target</div><div style="font-size:.6rem;color:var(--txt3);margin-top:3px">${reqPace>0?'Need '+fmtRp(reqPace)+'/day · ':''} ${daysLeft} days left</div></div></div></div>`;
