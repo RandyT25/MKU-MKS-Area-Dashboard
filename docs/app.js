@@ -441,6 +441,18 @@ function renderDel(){
     return;
   }
 
+  // Insight banner
+  const _worstArea=Object.entries(stats.by_area).sort((a,b)=>(b[1].t-b[1].ok)-(a[1].t-a[1].ok))[0];
+  const _insightEl=document.getElementById('del-insight');
+  if(_insightEl){
+    if(stats.unf>0&&_worstArea){
+      const _affected=new Set(del.filter(r=>r.ket==='UNFULFILLED').map(r=>r.customer)).size;
+      _insightEl.innerHTML=`<div style="background:var(--mku-l);border:1px solid var(--mku);border-radius:10px;padding:10px 16px;margin-bottom:12px;font-size:.75rem;display:flex;gap:12px;align-items:center"><span style="font-size:1.2rem">⚠️</span><span><strong>${stats.unf} unfulfilled lines</strong> · ${_affected} customers affected · <strong>${fmtRp(stats.lost_rev||0)}</strong> at risk · Worst area: <strong>${_worstArea[0]}</strong> (${_worstArea[1].t-_worstArea[1].ok} issues)</span></div>`;
+    } else {
+      _insightEl.innerHTML=`<div style="background:var(--grn-l);border:1px solid var(--grn);border-radius:10px;padding:10px 16px;margin-bottom:12px;font-size:.75rem;display:flex;gap:12px;align-items:center"><span style="font-size:1.2rem">✅</span><span><strong>All ${stats.tot} deliveries fulfilled.</strong> No issues today.</span></div>`;
+    }
+  }
+
   document.getElementById('del-kpis').innerHTML=`
     <div class="kpi-card c-grn"><div class="kpi-icon grn">✅</div><div class="kpi-label">Total Deliveries</div><div class="kpi-value">${stats.tot}</div><div class="kpi-sub">Dispatched</div></div>
     <div class="kpi-card c-grn"><div class="kpi-icon grn">📦</div><div class="kpi-label">Fulfilled</div><div class="kpi-value grn">${stats.ful}</div><div class="kpi-sub">${pct(stats.ful,stats.tot)}% rate</div></div>
