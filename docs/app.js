@@ -708,8 +708,13 @@ function renderMoM(){
   const _prevLastDate=prevDates[prevDates.length-1];
   const _curT=Object.values((curMo.targets_by_date||{})[_curLastDate]?.targets||{});
   const _prevT=Object.values((prevMo.targets_by_date||{})[_prevLastDate]?.targets||{});
-  const curRev=_curT.reduce((s,t)=>s+(t.achievement||0),0);
-  const prevRev=_prevT.reduce((s,t)=>s+(t.achievement||0),0);
+  const _curRevTgt=_curT.reduce((s,t)=>s+(t.achievement||0),0);
+  const _prevRevTgt=_prevT.reduce((s,t)=>s+(t.achievement||0),0);
+  // Fallback to SO summary if pencapaian not available
+  const _curRevSO=Object.values(curMo.so_summary||{}).reduce((s,d)=>s+(d.rev||0),0);
+  const _prevRevSO=Object.values(prevMo.so_summary||{}).reduce((s,d)=>s+(d.rev||0),0);
+  const curRev=_curRevTgt>0?_curRevTgt:_curRevSO;
+  const prevRev=_prevRevTgt>0?_prevRevTgt:_prevRevSO;
   const _curMonthStart=curKey+'-01';
   const _prevMonthStart=prevKey+'-01';
   const _curElapsed=_workDays(_curMonthStart,_curLastDate);
