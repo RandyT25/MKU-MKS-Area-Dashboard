@@ -207,13 +207,19 @@ function renderKPIs(){
   const outCount=stk.filter(s=>s.st==='out').length;
   const critCount=stk.filter(s=>s.st==='critical'||s.st==='low').length;
   const dateLabel=activeDate==='ALL'?(RAW.dates.length+' days'):fmtD(activeDate);
-  // Daily growth vs previous date
   const allDates=RAW.dates||[];
   const curIdx=activeDate==='ALL'?-1:allDates.indexOf(activeDate);
   const prevD=curIdx>0?allDates[curIdx-1]:null;
-  const prevS=prevD?getSummary(prevD):{rev:0,mku_rev:0,mks_rev:0};
-  const curS=activeDate==='ALL'?{rev:agg.rev,mku_rev:agg.mku_rev||Object.entries(agg.rep_rev).filter(([k])=>(RAW.so.find(r=>r.sales===k)||{}).division==='MKU Bali').reduce((s,[,v])=>s+v,0),mks_rev:agg.mks_rev||0}:getSummary(activeDate);
-  // MKU/MKS rev from agg (company-aware)
+  // Total revenue from pencapaian (Food+Bev+Nestle)
+  const _curMk=activeDate==='ALL'?RAW.latest.slice(0,7):activeDate.slice(0,7);
+  const _tbd=(RAW.months[_curMk]||{}).targets_by_date||{};
+  const _tdate=activeDate==='ALL'?RAW.latest:activeDate;
+  const _T=(_tbd[_tdate]||{}).targets||{};
+  const pencRev=(_T.FOOD&&_T.FOOD.achievement||0)+(_T.BEVERAGE&&_T.BEVERAGE.achievement||0)+(_T.NESTLE&&_T.NESTLE.achievement||0);
+  const totalRev=pencRev>0?pencRev:agg.rev;
+  const prevT=prevD?((_tbd[prevD]||{}).targets||{}):null;
+  const prevPencRev=prevT?((prevT.FOOD&&prevT.FOOD.achievement||0)+(prevT.BEVERAGE&&prevT.BEVERAGE.achievement||0)+(prevT.NESTLE&&prevT.NESTLE.achievement||0)):0;
+  // MKU/MKS rev from SO (company-aware)
   let mkuRev=0,mksRev=0;
   if(activeDate===RAW.latest||activeDate==='ALL'){
     const divMapK={};RAW.so.forEach(r=>{divMapK[r.sales]=r.division;});
@@ -222,7 +228,7 @@ function renderKPIs(){
     const s=getSummary(activeDate);mkuRev=s.mku_rev||0;mksRev=s.mks_rev||0;
   }
   document.getElementById('kpi-strip').innerHTML=`
-    <div class="kpi-card c-mks"><div class="kpi-icon mks">💰</div><div class="kpi-label">Total Revenue</div><div class="kpi-value mks">${fmtRp(agg.rev)}</div>${prevD?growthArr(agg.rev,prevS.rev):''}<div class="kpi-sub">${agg.cnt} orders · ${dateLabel}</div></div>
+    <div class="kpi-card c-mks"><div class="kpi-icon mks">💰</div><div class="kpi-label">Total Revenue</div><div class="kpi-value mks">${fmtRp(totalRev)}</div>${prevD&&prevPencRev>0?growthArr(totalRev,prevPencRev):''}<div class="kpi-sub">${agg.cnt} orders · ${dateLabel}</div></div>
     <div class="kpi-card c-mku"><div class="kpi-icon mku">🏢</div><div class="kpi-label">MKU Revenue</div><div class="kpi-value mku">${fmtRp(mkuRev)}</div>${prevD?growthArr(mkuRev,prevS.mku_rev||0):''}<div class="kpi-sub">MKU Bali</div></div>
     <div class="kpi-card c-mks"><div class="kpi-icon mks">🏢</div><div class="kpi-label">MKS Revenue</div><div class="kpi-value mks">${fmtRp(mksRev)}</div>${prevD?growthArr(mksRev,prevS.mks_rev||0):''}<div class="kpi-sub">MKS Bali</div></div>
     <div class="kpi-card c-grn"><div class="kpi-icon grn">🚚</div><div class="kpi-label">Fulfilment</div><div class="kpi-value grn">${delStats.tot>0?pct(delStats.ful,delStats.tot):'-'}%</div><div class="kpi-sub">${delStats.ful} of ${delStats.tot}</div></div>
