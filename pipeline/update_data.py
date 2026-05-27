@@ -144,37 +144,76 @@ def compress_del(mku_list, mks_list):
 # ── Parsers ───────────────────────────────────────────────────────
 
 def parse_so(path, date_str):
-    # Auto-detect column offset (handles extra leading columns)
+    # Read header to detect column layout
     df_hdr = pd.read_excel(path, sheet_name="Sheet", header=None, nrows=1)
     hdr = [str(v).strip().upper() if not pd.isna(v) else "" for v in df_hdr.iloc[0]]
-    offset = 0
+
+    # Detect format by looking for key columns
+    # New format (2026): Tgl Kirim, Tgl SO, No SO, Nama Divisi, Nama Customer, Syarat Bayar, Nama Sales, Kode Brg, Nama Brg, SO(Pcs), Satuan, FJ(Pcs), Sub T.Jual, BS-SO, Tipe, Status, Ket
+    # Old format: Tgl Kirim, No SO, Nama Divisi, Nama Customer, JT, Nama Sales, Nama Barang, SO(Pcs), Satuan, FJ(Pcs), sub T.Jual, BS-SO, Tipe, Status, Ket
+
+    # Find No SO column
+    no_so_col = None
     for i, h in enumerate(hdr):
-        if "NO" in h and "SO" in h: offset = i; break
-        if h in ("NO.", "NO", "NOMOR"): offset = i; break
-    if offset == 0:
-        df_data = pd.read_excel(path, sheet_name="Sheet", header=None, skiprows=1, nrows=5)
-        for col_idx in range(min(4, len(df_data.columns))):
-            vals = df_data.iloc[:, col_idx].astype(str)
-            if vals.str.contains(r"SO-|/\d{4}/", regex=True, na=False).any():
-                offset = col_idx; break
-    print(f"    SO column offset: {offset}")
+        if "NO" in h and "SO" in h: no_so_col = i; break
+
+    # Find key columns by name
+    col_map = {}
+    for i, h in enumerate(hdr):
+        if h in ("NO SO","NO. SO","NOMOR SO") or ("NO" in h and "SO" in h and no_so_col is None): col_map["no_so"]=i
+        elif "DIVISI" in h or "DIVISION" in h: col_map["division"]=i
+        elif "CUSTOMER" in h or "NAMA CUST" in h: col_map["customer"]=i
+        elif "SYARAT" in h or h=="JT": col_map["jt"]=i
+        elif "SALES" in h and "NO" not in h: col_map["sales"]=i
+        elif "KODE" in h and "BRG" in h: col_map["product"]=i
+        elif "NAMA BRG" in h or "NAMA BARANG" in h: col_map["product_name"]=i
+        elif ("SO" in h and "PCS" in h) and "BS" not in h and "FJ" not in h: col_map["so_pcs"]=i
+        elif "SATUAN" in h or h=="UNIT": col_map["unit"]=i
+        elif "FJ" in h and "PCS" in h: col_map["fj_pcs"]=i
+        elif "T.JUAL" in h or "TJUAL" in h or "SUB T" in h: col_map["revenue"]=i
+        elif "BS-SO" in h or "BS SO" in h: col_map["bs_so"]=i
+        elif "TIPE" in h or "TYPE" in h: col_map["type"]=i
+        elif "STATUS" in h: col_map["status"]=i
+        elif "KET" in h or "NOTE" in h: col_map["notes"]=i
+
+    print(f"    SO col_map: {col_map}")
+
     df = pd.read_excel(path, sheet_name="Sheet", header=None, skiprows=1)
     rows = []
     for _, row in df.iterrows():
         r = list(row)
-        o = offset
-        if len(r) <= o+1: continue
-        if pd.isna(r[o]) and pd.isna(r[o+1]): continue
-        no_so_val = str(r[o]).strip() if not pd.isna(r[o]) else ""
-        if no_so_val.upper() in ("NO. SO","NO SO","NOMOR SO","NAN",""): continue
-        def s(i): return str(r[o+i]).strip() if o+i < len(r) and not pd.isna(r[o+i]) else ""
-        def v(i): return fval(r[o+i]) if o+i < len(r) else 0.0
+        no_so_i = col_map.get("no_so", 2)
+        if len(r) <= no_so_i: continue
+        no_so_val = str(r[no_so_i]).strip() if not pd.isna(r[no_so_i]) else ""
+        if not no_so_val or no_so_val.upper() in ("NO. SO","NO SO","NOMOR SO","NAN","NO SO"): continue
+        if not no_so_val.startswith("SO-"): continue
+
+        def gc(key, default=""): 
+            i=col_map.get(key)
+            if i is None or i>=len(r) or pd.isna(r[i]): return default
+            return str(r[i]).strip()
+        def gv(key):
+            i=col_map.get(key)
+            if i is None or i>=len(r): return 0.0
+            return fval(r[i])
+
+        revenue = gv("revenue")
+        so_pcs = gv("so_pcs")
         rows.append({"date":date_str,
-            "no_so":s(0),"division":s(1),"customer":s(2),"jt":s(3),
-            "sales":norm_sales(s(4)),"product":s(5),
-            "so_pcs":v(6),"unit":s(7),"fj_pcs":v(8),
-            "revenue":v(10),"bs_so":v(10),
-            "type":s(11),"status":s(12),"notes":s(13)})
+            "no_so":no_so_val,
+            "division":gc("division"),
+            "customer":gc("customer"),
+            "jt":gc("jt"),
+            "sales":norm_sales(gc("sales")),
+            "product":gc("product"),
+            "so_pcs":so_pcs,
+            "unit":gc("unit"),
+            "fj_pcs":gv("fj_pcs"),
+            "revenue":revenue,
+            "bs_so":gv("bs_so") or revenue,
+            "type":gc("type"),
+            "status":gc("status"),
+            "notes":gc("notes")})
     if len(rows) < 10:
         raise ValueError(f"SO file has only {len(rows)} rows — wrong sheet?")
     return rows
