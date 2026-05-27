@@ -506,7 +506,8 @@ function renderDel(){
 function renderReps(){
   const agg=getAggSummary();
   document.getElementById('reps-lbl').textContent=(company==='ALL'?'All':company)+(activeDate==='ALL'?' · All days':' · '+fmtD(activeDate));
-  const reps=Object.entries(agg.rep_rev).sort((a,b)=>b[1]-a[1]);
+  const _HIDE_REPS=new Set(['Management Bali','Sales Retail','NP5','Unknown']);
+  const reps=Object.entries(agg.rep_rev).filter(([n])=>!_HIDE_REPS.has(n)).sort((a,b)=>b[1]-a[1]);
   const max=reps[0]?.[1]||1;
   const divMap={};RAW.so.forEach(r=>{divMap[r.sales]=r.division;});
 
@@ -544,7 +545,7 @@ function renderReps(){
   document.getElementById('tbl-reps').innerHTML=`<thead><tr>
     <th>#</th><th>Rep</th><th>Div</th>
     <th class="num">Revenue</th>
-    <th class="num">vs ${_prevD?fmtD(_prevD):'prev'}</th>
+    <th class="num">Daily &plusmn;</th>
     <th class="num">Orders</th><th class="num">Customers</th>
     <th>Biggest Customer</th><th>⚠ Dropped Off</th>
     <th style="width:80px">vs Top</th>
@@ -566,9 +567,10 @@ function renderReps(){
     let growthHtml='<span style="color:var(--txt3);font-size:.65rem">—</span>';
     if(_prevD&&prevRev>0){
       const diff=rev-prevRev,gPct=Math.round(diff/prevRev*100);
+      const gPctCap=Math.min(Math.abs(gPct),999)*(gPct>=0?1:-1);
       const col=gPct>0?'var(--grn)':gPct<0?'var(--mku)':'var(--txt3)';
       const arrow=gPct>0?'▲':gPct<0?'▼':'';
-      growthHtml=`<div style="font-weight:700;color:${col};font-size:.78rem;white-space:nowrap">${arrow} ${Math.abs(gPct)}%</div><div style="font-size:.6rem;color:var(--txt3)">${diff>0?'+':''}${fmtRp(diff)}</div>`;
+      growthHtml=`<div style="font-weight:700;color:${col};font-size:.78rem;white-space:nowrap">${arrow} ${Math.abs(gPctCap)}%${Math.abs(gPct)>999?'+':''}</div><div style="font-size:.6rem;color:var(--txt3)">${diff>0?'+':''}${fmtRp(diff)}</div>`;
     } else if(_prevD&&prevRev===0&&rev>0){
       growthHtml=`<div style="font-weight:700;color:var(--grn);font-size:.72rem">🆕 New</div>`;
     }
