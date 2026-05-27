@@ -812,12 +812,12 @@ function dlPDF(){
 }
 
 // ── customers.js loader ───────────────────────────────────────────────────────
-let CUSTOMERS=null;
+let _CUST=null;
 function loadCustomers(cb){
-  if(CUSTOMERS){cb();return;}
+  if(_CUST){cb();return;}
   const s=document.createElement('script');
   s.src='customers.js';
-  s.onload=function(){CUSTOMERS=window.CUSTOMERS||null;cb();};
+  s.onload=function(){_CUST=window.CUSTOMERS||null;cb();};
   s.onerror=function(){console.warn('customers.js not loaded');cb();};
   document.body.appendChild(s);
 }
@@ -875,9 +875,9 @@ function renderMoM(){
 function renderBusiness(){
   loadCustomers(function(){
     const el1=document.getElementById('biz-area');
-    if(el1&&CUSTOMERS){
-      const areas=CUSTOMERS.areas||{};
-      const months=CUSTOMERS.months||[];
+    if(el1&&_CUST){
+      const areas=_CUST.areas||{};
+      const months=_CUST.months||[];
       const rows=Object.values(areas).sort((a,b)=>b.total-a.total);
       const cols=months.slice(-3);
 
@@ -899,27 +899,27 @@ function renderBusiness(){
       <div class="card"><div class="card-hdr"><div class="card-title"><div class="ci grn">📍</div>Area Performance — Monthly Revenue</div></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Area</th><th>Div</th>${cols.map(m=>`<th class="num">${m.slice(0,3)}</th>`).join('')}<th class="num">Total</th><th>Trend</th></tr></thead><tbody>${rows.map(a=>{const vals=cols.map(m=>a.monthly[m]||0);const last=vals[vals.length-1],prev=vals[vals.length-2]||0;const trend=prev>0?Math.round((last-prev)/prev*100):0;const col=trend>0?'var(--grn)':trend<0?'var(--mku)':'var(--txt3)';const arrow=trend>0?'▲'+trend+'%':trend<0?'▼'+Math.abs(trend)+'%':'—';return`<tr><td style="font-weight:600;font-size:.7rem">${a.name}</td><td style="font-size:.63rem;color:var(--txt3)">${(a.division||'').replace(' Bali','')}</td>${vals.map(v=>`<td class="num">${fmtRp(v)}</td>`).join('')}<td class="num" style="font-weight:700">${fmtRp(a.total)}</td><td style="font-weight:700;color:${col};font-size:.7rem">${arrow}</td></tr>`;}).join('')}</tbody></table></div></div>`;
     }
     const el2=document.getElementById('biz-seg');
-    if(el2&&CUSTOMERS){
-      const segs=CUSTOMERS.segments||{};
+    if(el2&&_CUST){
+      const segs=_CUST.segments||{};
       const rows=Object.entries(segs).sort((a,b)=>b[1].total-a[1].total);
       const tot=rows.reduce((s,[,v])=>s+v.total,0);
       el2.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci pur">🏷️</div>Customer Segment Breakdown</div></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Segment</th><th class="num">Customers</th><th class="num">Total Revenue</th><th class="num">% of Total</th></tr></thead><tbody>${rows.map(([seg,v])=>`<tr><td style="font-weight:600">${seg}</td><td class="num">${v.cust_count}</td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(v.total)}</td><td class="num">${tot>0?Math.round(v.total/tot*100):0}%</td></tr>`).join('')}</tbody></table></div></div>`;
     }
     const el3=document.getElementById('biz-cust');
-    if(el3&&CUSTOMERS) renderCustomerSearch('');
+    if(el3&&_CUST) renderCustomerSearch('');
   });
 }
 
 function renderCustomerSearch(q){
   const el=document.getElementById('biz-cust');
-  if(!el||!CUSTOMERS)return;
-  const byRep=CUSTOMERS.by_rep||{};
+  if(!el||!_CUST)return;
+  const byRep=_CUST.by_rep||{};
   let all=[];
   Object.entries(byRep).forEach(([rep,rd])=>{Object.entries(rd.customers||{}).forEach(([code,c])=>{all.push({code,rep,...c});});});
   if(q)all=all.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())||c.rep.toLowerCase().includes(q.toLowerCase()));
   all.sort((a,b)=>b.total-a.total);
-  const _latMon=(CUSTOMERS.months||[]).slice(-1)[0]||'May';
-  const _prevMon=(CUSTOMERS.months||[]).slice(-2,-1)[0]||'';
+  const _latMon=(_CUST.months||[]).slice(-1)[0]||'May';
+  const _prevMon=(_CUST.months||[]).slice(-2,-1)[0]||'';
   el.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">👥</div>Customer Profiles</div><span class="card-sub">${all.length} customers</span></div><div style="margin-bottom:12px;padding:12px 16px 0"><input type="text" value="${q||''}" placeholder="Search customer or rep..." oninput="renderCustomerSearch(this.value)" style="width:100%;padding:8px 12px;border:1px solid var(--bdr);border-radius:8px;font-size:.75rem;font-family:inherit"></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Customer</th><th>Rep</th><th>Segment</th><th class="num">Total Spend</th><th>Last Order</th><th>Status</th></tr></thead><tbody>${all.slice(0,50).map(c=>{const isActive=c.last_month===_latMon;const isRecent=c.last_month===_prevMon;const statusCol=isActive?'var(--grn)':isRecent?'var(--org)':'var(--mku)';const statusLbl=isActive?'Active':isRecent?'Last month':'Inactive';return`<tr><td style="font-weight:600;font-size:.7rem">${c.name}</td><td style="font-size:.65rem;color:var(--txt2)">${c.rep}</td><td style="font-size:.63rem">${c.group||'—'}</td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(c.total)}</td><td style="font-size:.65rem;color:var(--txt3)">${c.last_month||'—'}</td><td><span style="font-size:.6rem;font-weight:700;color:${statusCol};background:${isActive?'var(--grn-l)':isRecent?'var(--org-l)':'var(--mku-l)'};padding:2px 7px;border-radius:4px">${statusLbl}</span></td></tr>`;}).join('')}</tbody></table></div></div>`;
 }
 
