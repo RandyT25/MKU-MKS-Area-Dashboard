@@ -228,7 +228,7 @@ def main():
     }
 
     CUSTOMERS_JS.parent.mkdir(parents=True, exist_ok=True)
-    out_str = "const CUSTOMERS = " + json.dumps(output, ensure_ascii=False, separators=(",",":")) + ";"
+    out_str = "var CUSTOMERS = " + json.dumps(output, ensure_ascii=False, separators=(",",":")) + ";"
     CUSTOMERS_JS.write_text(out_str, encoding="utf-8")
     size_kb = CUSTOMERS_JS.stat().st_size / 1024
     print(f"\n✓ customers.js written ({size_kb:.1f} KB)")
