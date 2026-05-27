@@ -396,6 +396,29 @@ function renderSO(){
   const cTop=Object.entries(agg.cust).sort((a,b)=>b[1].rev-a[1].rev).slice(0,20);
   document.getElementById('tbl-cust').innerHTML=`<thead><tr><th>#</th><th>Customer</th><th>Sales</th><th class="num">Orders</th><th class="num">Revenue</th></tr></thead><tbody>${cTop.map(([n,v],i)=>`<tr><td style="color:var(--txt3);font-weight:700">${i+1}</td><td style="font-weight:600">${n}</td><td><span class="badge b-gray">${v.sales}</span></td><td class="num">${v.so}</td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(v.rev)}</td></tr>`).join('')}</tbody>`;
 
+  // Segment donut — Food/Bev/Nestle from pencapaian
+  const _soMk=(activeDate==='ALL'?RAW.latest:activeDate).slice(0,7);
+  const _soTbd=(RAW.months[_soMk]||{}).targets_by_date||{};
+  const _soDate=activeDate==='ALL'?RAW.latest:activeDate;
+  const _soT=(_soTbd[_soDate]||{}).targets||{};
+  const segFood=(_soT.FOOD&&_soT.FOOD.achievement)||0;
+  const segBev=(_soT.BEVERAGE&&_soT.BEVERAGE.achievement)||0;
+  const segNes=(_soT.NESTLE&&_soT.NESTLE.achievement)||0;
+  const segEl=document.getElementById('ch-seg');
+  if(segEl&&(segFood+segBev+segNes)>0){
+    if(charts.seg)charts.seg.destroy();
+    charts.seg=new Chart(segEl,{type:'doughnut',data:{
+      labels:['Food','Beverage','Nestlé'],
+      datasets:[{data:[segFood,segBev,segNes],
+        backgroundColor:['#2563eb','#059669','#7c3aed'],
+        borderWidth:0,hoverOffset:6}]
+    },options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:'#8a93b0',font:{size:11},padding:12}},
+        tooltip:{callbacks:{label:function(ctx){return' '+ctx.label+': '+fmtRp(ctx.parsed)+' ('+Math.round(ctx.parsed/(segFood+segBev+segNes)*100)+'%)';}}}
+      }
+    }});
+  }
+
   // Full SO table only for latest day
   document.getElementById('so-count-lbl').textContent=agg.cnt+' orders';
   if(isFullDay){
