@@ -123,7 +123,8 @@ function getDel(){
   const dates=activeDate==='ALL'?RAW.dates:[activeDate];
   let all=[];
   dates.forEach(d=>{
-    const dd=RAW.delivery_by_date[d];if(!dd)return;
+    const _dmk=d.slice(0,7);const _dmo=RAW.months[_dmk]||{};const _ddbd=_dmo.delivery_by_date||RAW.delivery_by_date||{};
+    const dd=_ddbd[d];if(!dd)return;
     // Latest day has full records
     if(isLatest(d)){
       if(company==='ALL'||company==='MKU')(dd.mku_full||[]).forEach(r=>all.push({...r,co:'MKU',date:d}));
@@ -143,7 +144,8 @@ function getDelStats(){
   const dates=activeDate==='ALL'?RAW.dates:[activeDate];
   let tot=0,ful=0,by_area={};
   dates.forEach(d=>{
-    const dd=RAW.delivery_by_date[d];if(!dd)return;
+    const _smk=d.slice(0,7);const _smo=RAW.months[_smk]||{};const _sdbd=_smo.delivery_by_date||RAW.delivery_by_date||{};
+    const dd=_sdbd[d];if(!dd)return;
     if(isLatest(d)){
       let rows=[];
       if(company==='ALL'||company==='MKU')(dd.mku_full||[]).forEach(r=>rows.push({...r,co:'MKU'}));
@@ -160,8 +162,10 @@ function getDelStats(){
 
 function getStk(){
   const date=activeDate==='ALL'?RAW.latest:activeDate;
-  const sd=RAW.stock_by_date[date];if(!sd)return[];
-  // Latest day has full lists
+  const mk=date.slice(0,7);
+  const mo=RAW.months[mk]||{};
+  const sbd=mo.stock_by_date||RAW.stock_by_date||{};
+  const sd=sbd[date];if(!sd)return[];
   if(isLatest(date)){
     const mku=sd.MKU_full||sd.MKU||sd.mku||[];
     const mks=sd.MKS_full||sd.MKS||sd.mks||[];
@@ -169,7 +173,6 @@ function getStk(){
     if(company==='MKS')return mks.map(s=>({...s,co:'MKS'}));
     return[...mku.map(s=>({...s,co:'MKU'})),...mks.map(s=>({...s,co:'MKS'}))];
   }
-  // Compressed: only non-OK items
   const mku=sd.MKU||[];const mks=sd.MKS||[];
   if(company==='MKU')return mku.map(s=>({...s,co:'MKU'}));
   if(company==='MKS')return mks.map(s=>({...s,co:'MKS'}));
@@ -178,7 +181,10 @@ function getStk(){
 
 function getStkSummary(){
   const date=activeDate==='ALL'?RAW.latest:activeDate;
-  const sd=RAW.stock_by_date[date];if(!sd)return null;
+  const mk=date.slice(0,7);
+  const mo=RAW.months[mk]||{};
+  const sbd=mo.stock_by_date||RAW.stock_by_date||{};
+  const sd=sbd[date];if(!sd)return null;
   return sd.summary||null;
 }
 
