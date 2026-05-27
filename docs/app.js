@@ -160,6 +160,21 @@ function getDelStats(){
   return{tot,ful,unf:tot-ful,by_area};
 }
 
+function _buildPriceMap(){
+  // Build product->unit_price from RAW.so using bs_so
+  // bs_so is total line value; if so_pcs>0 use bs_so/so_pcs else use bs_so as-is
+  const map={};
+  (RAW.so||[]).forEach(r=>{
+    if(!r.product) return;
+    const qty=r.so_pcs||0;
+    const val=r.bs_so||r.revenue||0;
+    if(!map[r.product]&&val>0){
+      map[r.product]=qty>0?val/qty:val;
+    }
+  });
+  return map;
+}
+
 function getStk(){
   const date=activeDate==='ALL'?RAW.latest:activeDate;
   const mk=date.slice(0,7);
@@ -453,7 +468,13 @@ function renderDel(){
   if(_insightEl){
     if(stats.unf>0&&_worstArea){
       const _affected=new Set(del.filter(r=>r.ket==='UNFULFILLED').map(r=>r.customer)).size;
-      _insightEl.innerHTML=`<div style="background:var(--mku-l);border:1px solid var(--mku);border-radius:10px;padding:10px 16px;margin-bottom:12px;font-size:.75rem;display:flex;gap:12px;align-items:center"><span style="font-size:1.2rem">⚠️</span><span><strong>${stats.unf} unfulfilled lines</strong> · ${_affected} customers affected · <strong>${fmtRp(stats.lost_rev||0)}</strong> at risk · Worst area: <strong>${_worstArea[0]}</strong> (${_worstArea[1].t-_worstArea[1].ok} issues)</span></div>`;
+      const _pmap=_buildPriceMap();
+      const _lostRev=del.filter(r=>r.ket==='UNFULFILLED').reduce((s,r)=>{
+        const price=_pmap[r.product]||0;
+        const qty=r.qty_bs||1;
+        return s+(price>0?price*qty:0);
+      },0);
+      _insightEl.innerHTML=`<div style="background:var(--mku-l);border:1px solid var(--mku);border-radius:10px;padding:10px 16px;margin-bottom:12px;font-size:.75rem;display:flex;gap:12px;align-items:center"><span style="font-size:1.2rem">⚠️</span><span><strong>${stats.unf} unfulfilled lines</strong> · ${_affected} customers affected · <strong>${fmtRp(_lostRev)}</strong> at risk · Worst area: <strong>${_worstArea[0]}</strong> (${_worstArea[1].t-_worstArea[1].ok} issues)</span></div>`;
     } else {
       _insightEl.innerHTML=`<div style="background:var(--grn-l);border:1px solid var(--grn);border-radius:10px;padding:10px 16px;margin-bottom:12px;font-size:.75rem;display:flex;gap:12px;align-items:center"><span style="font-size:1.2rem">✅</span><span><strong>All ${stats.tot} deliveries fulfilled.</strong> No issues today.</span></div>`;
     }
