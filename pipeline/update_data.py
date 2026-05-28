@@ -429,6 +429,9 @@ def group_files_by_date():
     for f in files:
         n = norm_name(f.name)
         if "data_pencapaian" in n:
+            if not re.search(r'\d{1,2}\s+\w+', f.name):  # skip undated generic file
+                print(f"    Skipping undated pencapaian: {f.name}")
+                continue
             pencapaian_candidates.append(f)
             continue
 
