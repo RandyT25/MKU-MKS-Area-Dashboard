@@ -229,16 +229,21 @@ def parse_so(path, date_str):
 
 def parse_stock(path):
     df = pd.read_excel(path, sheet_name="all product", header=None, skiprows=1)
+    ncols = df.shape[1]
+    # 8-col compact format: [code,name,unit,saldo,avg3m,buf3m,sales_period,buf_period]
+    # 11-col full format:   [code,name,unit,saldo,m1,m2,m3,avg3m,buf3m,sales_period,buf_period]
+    avg3m_col = 4 if ncols <= 8 else 7
+    buf_col   = 7 if ncols <= 8 else 10
     items = []
     for _, row in df.iterrows():
         r = list(row); code = r[0]
         if pd.isna(code) or str(code).strip().lower() in ("","nan"): continue
-        saldo=fval(r[3]); buf=fval(r[10])
+        saldo=fval(r[3]); buf=fval(r[buf_col])
         st="out" if saldo<=0 else "critical" if buf<3 else "low" if buf<7 else "ok"
         items.append({"code":str(code).strip(),
             "name":str(r[1]).strip() if not pd.isna(r[1]) else "",
             "unit":str(r[2]).strip() if not pd.isna(r[2]) else "",
-            "saldo":saldo,"avg3m":fval(r[7]),"buf":buf,"st":st})
+            "saldo":saldo,"avg3m":fval(r[avg3m_col]),"buf":buf,"st":st})
     return items
 
 def parse_delivery(path):
