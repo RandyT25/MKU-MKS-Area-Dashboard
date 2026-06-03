@@ -296,11 +296,7 @@ function renderTarget(){
   const dayNum=parseInt(lastDate.split('-')[2]);
   const daysInMonth=new Date(parseInt(lastDate.split('-')[0]),parseInt(lastDate.split('-')[1]),0).getDate();
 
-  const _y=parseInt(lastDate.split('-')[0]),_m=parseInt(lastDate.split('-')[1]);
-  const _monthStart=_y+'-'+String(_m).padStart(2,'0')+'-01';
-  const _totalWorkDays=_workDays(_monthStart,new Date(_y,_m,0).toISOString().slice(0,10));
-  const _elapsedWorkDays=_workDays(_monthStart,lastDate);
-  const timePct=Math.round(_elapsedWorkDays/_totalWorkDays*100);
+  const timePct=Math.round(dayNum/daysInMonth*100);
   const badgeCls=p=>p>=timePct?'b-grn':p>=(timePct*0.75)?'b-org':'b-red';
 
   document.getElementById('tgt-cats').innerHTML=`
