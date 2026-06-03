@@ -8,7 +8,7 @@ function _workDays(fromDate,toDate){
   let cnt=0,d=new Date(fromDate+'T00:00:00');
   const end=new Date(toDate+'T00:00:00');
   while(d<=end){
-    const ds=d.toISOString().slice(0,10);
+    const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     if(d.getDay()!==0&&!_HOLIDAYS.includes(ds))cnt++;
     d.setDate(d.getDate()+1);
   }
