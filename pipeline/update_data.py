@@ -79,16 +79,18 @@ def norm_name(f): return f.lower().replace(" ","_")
 
 def extract_date_from_name(name):
     """Extract YYYY-MM-DD from filename. Handles:
-       '21 Mei 2026', '2026-05-21', '2026_05_21', '21_05_2026'
+       '21 Mei 2026', '2026-05-21', '2026_05_21', '21_05_2026', '02 JUN 26'
     """
     # Pattern: YYYY-MM-DD or YYYY_MM_DD
     m = re.search(r"(\d{4})[-_](\d{2})[-_](\d{2})", name)
     if m: return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
-    # Pattern: DD Mon YYYY  e.g. "21 Mei 2026" or "21_mei_2026"
-    m = re.search(r"(\d{1,2})[\s_-]+([a-z]{3})[\s_-]+(\d{4})", name.lower())
+    # Pattern: DD Mon YYYY or DD Mon YY  e.g. "21 Mei 2026", "02 JUN 26"
+    m = re.search(r"(\d{1,2})[\s_-]+([a-z]{3})[\s_-]+(\d{2,4})", name.lower())
     if m:
         mon = MONTHS_ID.get(m.group(2))
-        if mon: return f"{m.group(3)}-{mon}-{int(m.group(1)):02d}"
+        yr = m.group(3)
+        if len(yr) == 2: yr = "20" + yr
+        if mon: return f"{yr}-{mon}-{int(m.group(1)):02d}"
     # Pattern: just a day number with month context (e.g. "MKU 21.xlsx")
     # handled separately in grouping
     return None
@@ -448,7 +450,7 @@ def group_files_by_date():
         MONTHS={'jan':1,'feb':2,'mar':3,'apr':4,'mei':5,'may':5,'jun':6,'jul':7,'agu':8,'sep':9,'okt':10,'nov':11,'des':12}
         if m: return MONTHS.get(m.group(2),0)*100+int(m.group(1))
         return 0
-    pencapaian = max(pencapaian_candidates, key=lambda f: (pencapaian_date(f), f.stat().st_mtime))
+    pencapaian = max(pencapaian_candidates, key=lambda f: f.stat().st_mtime)
     if len(pencapaian_candidates) > 1:
         print(f"WARNING: Multiple DATA_PENCAPAIAN files found — using newest: {pencapaian.name}")
         for c in pencapaian_candidates:
@@ -542,7 +544,8 @@ def main():
     # Process all dates in chronological order
     # All dates get compressed (so_summary only, no full rows) except the LAST one
     all_dates = dates_to_process  # process all found, re-process included
-    latest_date = max(all_dates)
+    complete = [d for d in all_dates if all(r in date_files[d] for r in ["so","stk_mku","stk_mks","del_mku","del_mks"])]
+    latest_date = max(complete) if complete else max(all_dates)
 
     for date_str in sorted(all_dates):
         dt = datetime.strptime(date_str, "%Y-%m-%d")
