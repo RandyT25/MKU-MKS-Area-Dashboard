@@ -448,13 +448,7 @@ def group_files_by_date():
         MONTHS={'jan':1,'feb':2,'mar':3,'apr':4,'mei':5,'may':5,'jun':6,'jul':7,'agu':8,'sep':9,'okt':10,'nov':11,'des':12}
         if m: return MONTHS.get(m.group(2),0)*100+int(m.group(1))
         return 0
-    # Master file (no date in name) always wins — it's the most current
-    master = [f for f in pencapaian_candidates if not re.search(r'\d+\s+[a-z]', f.name.lower())]
-    if master:
-        pencapaian = max(master, key=lambda f: f.stat().st_mtime)
-        print(f"  Using master pencapaian: {pencapaian.name}")
-    else:
-        pencapaian = max(pencapaian_candidates, key=lambda f: (pencapaian_date(f), f.stat().st_mtime))
+    pencapaian = max(pencapaian_candidates, key=lambda f: (pencapaian_date(f), f.stat().st_mtime))
     if len(pencapaian_candidates) > 1:
         print(f"WARNING: Multiple DATA_PENCAPAIAN files found — using newest: {pencapaian.name}")
         for c in pencapaian_candidates:
@@ -605,8 +599,9 @@ def main():
         # Store so_summary for every date (compressed)
         m["so_summary"][date_str] = compress_so(so_rows)
 
-        # Targets: always overwrite — pencapaian file reflects latest cumulative data
-        m["targets_by_date"][date_str] = targets_entry
+        # Targets: always update latest date, preserve historical snapshots
+        if is_latest or date_str not in m["targets_by_date"]:
+            m["targets_by_date"][date_str] = targets_entry
 
         if is_latest:
             # Latest date: keep full data for live dashboard
