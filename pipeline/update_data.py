@@ -55,9 +55,15 @@ SALES_NORM_MAP = {
 }
 
 MONTHS_ID = {
-    "jan":"01","feb":"02","mar":"03","apr":"04","mei":"05","may":"05",
-    "jun":"06","jul":"07","agu":"08","aug":"08","sep":"09",
-    "okt":"10","oct":"10","nov":"11","des":"12","dec":"12",
+    "jan":"01","feb":"02","mar":"03","apr":"04","april":"04",
+    "mei":"05","may":"05",
+    "jun":"06","juni":"06","june":"06",
+    "jul":"07","juli":"07",
+    "agu":"08","aug":"08","agus":"08",
+    "sep":"09","sept":"09",
+    "okt":"10","oct":"10",
+    "nov":"11",
+    "des":"12","dec":"12",
 }
 
 # ── Helpers ────────────────────────────────────────────────────────
@@ -84,8 +90,8 @@ def extract_date_from_name(name):
     # Pattern: YYYY-MM-DD or YYYY_MM_DD
     m = re.search(r"(\d{4})[-_](\d{2})[-_](\d{2})", name)
     if m: return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
-    # Pattern: DD Mon YYYY or DD Mon YY  e.g. "21 Mei 2026", "02 JUN 26"
-    m = re.search(r"(\d{1,2})[\s_-]+([a-z]{3})[\s_-]+(\d{2,4})", name.lower())
+    # Pattern: DD Mon YYYY or DD Mon YY  e.g. "21 Mei 2026", "02 JUN 26", "3 Juni 2026"
+    m = re.search(r"(\d{1,2})[\s_-]+([a-z]{3,5})[\s_-]+(\d{2,4})", name.lower())
     if m:
         mon = MONTHS_ID.get(m.group(2))
         yr = m.group(3)
@@ -97,7 +103,7 @@ def extract_date_from_name(name):
 
 def extract_day_only(name):
     """For files like 'MKU 21.xlsx' — extract just the day number."""
-    m = re.search(r"(\d{1,2})\.xlsx", name.lower())
+    m = re.search(r"(?<!\d)(\d{1,2})\.xlsx", name.lower())
     if m: return int(m.group(1))
     return None
 
