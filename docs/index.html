@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MKU & MKS Dashboard — April 2026</title>
+  <title>MKU & MKS Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -168,6 +168,7 @@ function buildMonthMenu(){
   var lbl='📅 '+(RAW.months[_mk]?RAW.months[_mk].label:_mk);
   var c=document.getElementById('month-chip');if(c)c.textContent=lbl;
   var cm=document.getElementById('m-month-chip');if(cm)cm.textContent=lbl;
+  document.title='MKU & MKS Dashboard — '+(RAW.months[_mk]?RAW.months[_mk].label:_mk);
 }
 function switchMonth(key){
   _applyMonth(key);
