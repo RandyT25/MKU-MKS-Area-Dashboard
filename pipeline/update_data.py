@@ -19,6 +19,11 @@ UPLOADS_DIR   = REPO_ROOT / "uploads"
 DATA_JS       = REPO_ROOT / "docs" / "data.js"
 DATA_SALES_JS = REPO_ROOT / "docs" / "data_sales.js"
 
+# Add dates here that are off days (no delivery, no data expected)
+OFF_DAYS = [
+    "2026-06-16",
+]
+
 MONTH_SHEET = {
     1:"JAN",2:"FEB",3:"MAR",4:"APR",5:"MEI",
     6:"JUN",7:"JUL",8:"AGU",9:"SEP",10:"OKT",11:"NOV",12:"DES",
@@ -665,6 +670,7 @@ def main():
             m["dates"] = sorted(m["dates"] + [date_str])
 
     # Write data.js
+    raw["off_days"] = sorted(OFF_DAYS)
     DATA_JS.parent.mkdir(parents=True, exist_ok=True)
     output = "const RAW = " + json.dumps(raw, ensure_ascii=False, separators=(",",":")) + ";"
     DATA_JS.write_text(output, encoding="utf-8")

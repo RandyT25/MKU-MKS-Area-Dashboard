@@ -29,12 +29,30 @@ function buildDT(){
   const mlbl=activeDate==='ALL'?'📅 All':'📅 '+fmtD(activeDate);
   const lbl_el=document.getElementById('date-dd-lbl');if(lbl_el)lbl_el.textContent=lbl;
   const mlbl_el=document.getElementById('m-date-dd-lbl');if(mlbl_el)mlbl_el.textContent=mlbl;
-  const items=['ALL',...RAW.dates].map(d=>{
+  const offSet=new Set(RAW.off_days||[]);
+  const allDates=['ALL',...RAW.dates];
+  const items=[];
+  for(let i=0;i<allDates.length;i++){
+    const d=allDates[i];
     const label=d==='ALL'?'All Days':fmtD(d)+(isLatest(d)?' ★':'');
-    return`<button class="date-dd-item ${activeDate===d?'active':''}" onclick="setDate('${d}')" style="font-size:.65rem;padding:6px 12px">${label}</button>`;
-  }).join('');
+    items.push(`<button class="date-dd-item ${activeDate===d?'active':''}" onclick="setDate('${d}')" style="font-size:.65rem;padding:6px 12px">${label}</button>`);
+    // Insert off-day markers between this date and the next data date
+    if(d!=='ALL'&&allDates[i+1]&&allDates[i+1]!=='ALL'){
+      const cur=new Date(d+'T00:00:00'),nxt=new Date(allDates[i+1]+'T00:00:00');
+      for(let t=new Date(cur);t<nxt;t.setDate(t.getDate()+1)){
+        const ds=t.toISOString().slice(0,10);
+        if(ds!==d&&offSet.has(ds))
+          items.push(`<div style="font-size:.6rem;color:var(--txt3);padding:4px 12px;display:flex;align-items:center;gap:5px">📅 <span>${fmtD(ds)}</span><span style="background:#f1f5f9;border-radius:4px;padding:1px 5px;font-size:.55rem;font-weight:700;color:#64748b">OFF</span></div>`);
+      }
+    }
+  }
+  // Off days after the last data date
+  (RAW.off_days||[]).filter(d=>d>RAW.dates[RAW.dates.length-1]).forEach(d=>{
+    items.push(`<div style="font-size:.6rem;color:var(--txt3);padding:4px 12px;display:flex;align-items:center;gap:5px">📅 <span>${fmtD(d)}</span><span style="background:#f1f5f9;border-radius:4px;padding:1px 5px;font-size:.55rem;font-weight:700;color:#64748b">OFF</span></div>`);
+  });
+  const items_str=items.join('');
   ['date-dd-menu','m-date-dd-menu'].forEach(id=>{
-    const el=document.getElementById(id);if(el)el.innerHTML=items;
+    const el=document.getElementById(id);if(el)el.innerHTML=items_str;
   });
 }
 function setDate(d){
