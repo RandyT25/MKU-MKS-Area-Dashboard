@@ -247,20 +247,44 @@ def parse_stock(path):
     return items
 
 def parse_delivery(path):
-    df = pd.read_excel(path, sheet_name="Sheet", header=None, skiprows=1)
+    xl = pd.ExcelFile(path)
+    sheet = "Sheet" if "Sheet" in xl.sheet_names else xl.sheet_names[0]
+    # Detect format: legacy .xls has 12 cols with a 4-row header;
+    # standard .xlsx has 13+ cols with a 1-row header.
+    probe = pd.read_excel(xl, sheet_name=sheet, header=None, nrows=1)
+    ncols = probe.shape[1]
+    is_legacy = ncols <= 12
+    skip = 4 if is_legacy else 1
+    df = pd.read_excel(xl, sheet_name=sheet, header=None, skiprows=skip)
     rows = []
     for _, row in df.iterrows():
         r = list(row); no_so = r[2]
         if pd.isna(no_so) or str(no_so).strip().lower() in ("","nan","no. so"): continue
-        ket_raw = str(r[12]).strip() if not pd.isna(r[12]) else ""
-        rows.append({"no_so":str(no_so).strip(),
-            "area":str(r[3]).strip() if not pd.isna(r[3]) else "",
-            "customer":str(r[4]).strip() if not pd.isna(r[4]) else "",
-            "sales":norm_sales(r[5]),
-            "product":str(r[6]).strip() if not pd.isna(r[6]) else "",
-            "unit":str(r[9]).strip() if not pd.isna(r[9]) else "",
-            "qty_bs":fval(r[11]),
-            "ket":"UNFULFILLED" if ket_raw.upper().startswith("UN") else "FULFILLED"})
+        no_so_s = str(no_so).strip()
+        if not no_so_s.startswith("SO-"): continue
+        if is_legacy:
+            # col: 0=seq, 1=date, 2=no_so, 3=customer, 4=sales,
+            #      5=prod_code, 6=prod_name, 7=brand, 8=so_kg,
+            #      9=unit, 10=bs_pcs, 11=keterangan
+            ket_raw = str(r[11]).strip() if len(r) > 11 and not pd.isna(r[11]) else ""
+            rows.append({"no_so":no_so_s,
+                "area":"",
+                "customer":str(r[3]).strip() if not pd.isna(r[3]) else "",
+                "sales":norm_sales(r[4]),
+                "product":str(r[5]).strip() if not pd.isna(r[5]) else "",
+                "unit":str(r[9]).strip() if len(r) > 9 and not pd.isna(r[9]) else "",
+                "qty_bs":fval(r[10]) if len(r) > 10 else 0.0,
+                "ket":"UNFULFILLED" if ket_raw.upper().startswith("UN") else "FULFILLED"})
+        else:
+            ket_raw = str(r[12]).strip() if len(r) > 12 and not pd.isna(r[12]) else ""
+            rows.append({"no_so":no_so_s,
+                "area":str(r[3]).strip() if not pd.isna(r[3]) else "",
+                "customer":str(r[4]).strip() if not pd.isna(r[4]) else "",
+                "sales":norm_sales(r[5]),
+                "product":str(r[6]).strip() if not pd.isna(r[6]) else "",
+                "unit":str(r[9]).strip() if not pd.isna(r[9]) else "",
+                "qty_bs":fval(r[11]),
+                "ket":"UNFULFILLED" if ket_raw.upper().startswith("UN") else "FULFILLED"})
     return rows
 
 def get_cumulative_so_rev(months_data, date_str):
@@ -608,7 +632,8 @@ def main():
             t = targets_entry["targets"]
             print(f"  FOOD: {t['FOOD']['achievement']:,.0f}/{t['FOOD']['target']:,.0f} | BEV: {t['BEVERAGE']['achievement']:,.0f}/{t['BEVERAGE']['target']:,.0f} | NES: {t['NESTLE']['achievement']:,.0f}/{t['NESTLE']['target']:,.0f}")
         except Exception as e:
-            print(f"  ERROR parsing targets: {e}"); continue
+            print(f"  WARNING: targets skipped ({e})")
+            targets_entry = {"targets":{"FOOD":{"target":0,"achievement":0},"BEVERAGE":{"target":0,"achievement":0},"NESTLE":{"target":0,"achievement":0}},"nestle_areas":[],"area_targets":[],"balian":[]}
 
         # Store so_summary for every date (compressed)
         m["so_summary"][date_str] = compress_so(so_rows)
