@@ -638,9 +638,8 @@ def main():
         # Store so_summary for every date (compressed)
         m["so_summary"][date_str] = compress_so(so_rows)
 
-        # Targets: always update latest date, preserve historical snapshots
-        if is_latest or date_str not in m["targets_by_date"]:
-            m["targets_by_date"][date_str] = targets_entry
+        # Always overwrite targets so re-uploads of pencapaian take effect
+        m["targets_by_date"][date_str] = targets_entry
 
         if is_latest:
             # Latest date: keep full data for live dashboard
