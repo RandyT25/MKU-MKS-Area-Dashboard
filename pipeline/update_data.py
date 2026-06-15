@@ -102,8 +102,8 @@ def extract_date_from_name(name):
     return None
 
 def extract_day_only(name):
-    """For files like 'MKU 21.xlsx' — extract just the day number."""
-    m = re.search(r"(?<!\d)(\d{1,2})\.xlsx", name.lower())
+    """For files like 'MKU 21.xlsx' or 'MKU 21.xls' — extract just the day number."""
+    m = re.search(r"(?<!\d)(\d{1,2})\.xlsx?", name.lower())
     if m: return int(m.group(1))
     return None
 
@@ -429,7 +429,7 @@ def group_files_by_date():
     Returns: dict of {date_str: {so, stk_mku, stk_mks, del_mku, del_mks}}
              and pencapaian path
     """
-    files = list(UPLOADS_DIR.glob("*.xlsx"))
+    files = list(UPLOADS_DIR.glob("*.xlsx")) + list(UPLOADS_DIR.glob("*.xls"))
     if not files:
         print(f"ERROR: No .xlsx files in {UPLOADS_DIR}"); sys.exit(1)
 
