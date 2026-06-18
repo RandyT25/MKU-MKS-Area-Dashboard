@@ -233,7 +233,9 @@ def parse_so(path, date_str):
     return rows
 
 def parse_stock(path):
-    df = pd.read_excel(path, sheet_name="all product", header=None, skiprows=1)
+    xl = pd.ExcelFile(path)
+    sheet = "all product" if "all product" in xl.sheet_names else xl.sheet_names[0]
+    df = pd.read_excel(xl, sheet_name=sheet, header=None, skiprows=1)
     ncols = df.shape[1]
     # 8-col compact format: [code,name,unit,saldo,avg3m,buf3m,sales_period,buf_period]
     # 11-col full format:   [code,name,unit,saldo,m1,m2,m3,avg3m,buf3m,sales_period,buf_period]
