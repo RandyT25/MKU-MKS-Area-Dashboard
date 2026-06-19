@@ -260,7 +260,7 @@ function renderKPIs(){
   const critCount=stk.filter(s=>s.st==='critical'||s.st==='low').length;
   const dateLabel=activeDate==='ALL'?(RAW.dates.length+' days'):fmtD(activeDate);
   const allDates=RAW.dates||[];
-  const curIdx=activeDate==='ALL'?-1:allDates.indexOf(activeDate);
+  const curIdx=activeDate==='ALL'?allDates.length-1:allDates.indexOf(activeDate);
   const prevD=curIdx>0?allDates[curIdx-1]:null;
   // Total revenue from pencapaian (Food+Bev+Nestle)
   const _curMk=activeDate==='ALL'?RAW.latest.slice(0,7):activeDate.slice(0,7);
