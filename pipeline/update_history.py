@@ -51,11 +51,12 @@ def fval(v):
     except: return 0.0
 
 def find_global_file():
-    files = list(UPLOADS_DIR.glob("data_penjualan_global*.xlsx"))
+    files = (list(UPLOADS_DIR.glob("data_penjualan_global*.xlsx")) +
+             list(UPLOADS_DIR.glob("data penjualan global*.xlsx")))
     if not files:
-        print("ERROR: No data_penjualan_global*.xlsx found in uploads/")
+        print("ERROR: No 'data penjualan global*.xlsx' found in uploads/")
         sys.exit(1)
-    f = sorted(files)[-1]
+    f = max(files, key=lambda f: f.stat().st_mtime)
     print(f"Found: {f.name}")
     return f
 
