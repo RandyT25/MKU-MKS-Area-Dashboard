@@ -50,14 +50,38 @@ def fval(v):
     try: f=float(v); return 0.0 if f!=f else f
     except: return 0.0
 
+MONTH_ABBR = {
+    "jan":1,"feb":2,"mar":3,"apr":4,"mei":5,"may":5,"jun":6,"jui":7,"jul":7,
+    "agu":8,"aug":8,"sep":9,"okt":10,"oct":10,"nov":11,"des":12,"dec":12,
+}
+
+def _end_month(f):
+    # Filenames encode their coverage as "<start>-<end>", e.g. "jan-jul 2026".
+    # mtimes are unreliable here (git checkout stamps all uploads with the
+    # same timestamp), so rank by the parsed end month instead and only
+    # fall back to mtime for files that don't match the pattern.
+    m = re.search(r"([a-zA-Z]{3})\s*-\s*([a-zA-Z]{3})", f.stem)
+    if m:
+        end = MONTH_ABBR.get(m.group(2).lower())
+        if end:
+            return end
+    return None
+
 def find_global_file():
     files = (list(UPLOADS_DIR.glob("data_penjualan_global*.xlsx")) +
              list(UPLOADS_DIR.glob("data penjualan global*.xlsx")))
     if not files:
         print("ERROR: No 'data penjualan global*.xlsx' found in uploads/")
         sys.exit(1)
-    f = max(files, key=lambda f: f.stat().st_mtime)
+    for cand in files:
+        print(f"  Candidate: {cand.name} (end month: {_end_month(cand)})")
+    f = max(files, key=lambda f: (_end_month(f) is not None, _end_month(f) or 0, f.stat().st_mtime))
     print(f"Found: {f.name}")
+    # Delete superseded duplicates so a future stale mtime can't win again
+    for other in files:
+        if other != f:
+            other.unlink()
+            print(f"  Deleted superseded {other.name}")
     return f
 
 def main():
