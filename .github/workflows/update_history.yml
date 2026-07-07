@@ -43,6 +43,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/customers.js
+          git add -A -- uploads/
           if git diff --staged --quiet; then
             echo "No changes — skipping commit."
           else
