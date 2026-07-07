@@ -234,23 +234,52 @@ def parse_so(path, date_str):
 
 def parse_stock(path):
     xl = pd.ExcelFile(path)
-    sheet = "all product" if "all product" in xl.sheet_names else xl.sheet_names[0]
-    df = pd.read_excel(xl, sheet_name=sheet, header=None, skiprows=1)
-    ncols = df.shape[1]
-    # 8-col compact format: [code,name,unit,saldo,avg3m,buf3m,sales_period,buf_period]
-    # 11-col full format:   [code,name,unit,saldo,m1,m2,m3,avg3m,buf3m,sales_period,buf_period]
-    avg3m_col = 4 if ncols <= 8 else 7
-    buf_col   = 7 if ncols <= 8 else 10
+
+    if "all product" in xl.sheet_names:
+        # Legacy flat layout (no header row).
+        df = pd.read_excel(xl, sheet_name="all product", header=None, skiprows=1)
+        ncols = df.shape[1]
+        # 8-col compact format: [code,name,unit,saldo,avg3m,buf3m,sales_period,buf_period]
+        # 11-col full format:   [code,name,unit,saldo,m1,m2,m3,avg3m,buf3m,sales_period,buf_period]
+        avg3m_col = 4 if ncols <= 8 else 7
+        buf_col   = 7 if ncols <= 8 else 10
+        items = []
+        for _, row in df.iterrows():
+            r = list(row); code = r[0]
+            if pd.isna(code) or str(code).strip().lower() in ("","nan"): continue
+            saldo=fval(r[3]); buf=fval(r[buf_col])
+            st="out" if saldo<=0 else "critical" if buf<3 else "low" if buf<7 else "ok"
+            items.append({"code":str(code).strip(),
+                "name":str(r[1]).strip() if not pd.isna(r[1]) else "",
+                "unit":str(r[2]).strip() if not pd.isna(r[2]) else "",
+                "saldo":saldo,"avg3m":fval(r[avg3m_col]),"buf":buf,"st":st})
+        return items
+
+    # Current layout: "Data" sheet with named headers (Kode_Brg, Nama_Brg, ...).
+    # The period-buffer column's header text includes a rolling date range
+    # (e.g. "Buffer Day (Tgl 1 sd 07 Jul 2026)"), so match by keyword, not position.
+    sheet = "Data" if "Data" in xl.sheet_names else xl.sheet_names[0]
+    df = pd.read_excel(xl, sheet_name=sheet, header=0)
+    hdr = [str(c).strip().upper() for c in df.columns]
+    col_map = {}
+    for i, h in enumerate(hdr):
+        if "KODE" in h and "BRG" in h: col_map["code"] = i
+        elif "NAMA" in h and "BRG" in h: col_map["name"] = i
+        elif "unit" not in col_map and ("KODE_SAT" in h or "SATUAN" in h): col_map["unit"] = i
+        elif "SALDO" in h: col_map["saldo"] = i
+        elif "RATA" in h and "3 BULAN" in h: col_map["avg3m"] = i
+        elif "BUFFER DAY" in h and "TGL" in h: col_map["buf"] = i
+
     items = []
     for _, row in df.iterrows():
-        r = list(row); code = r[0]
+        r = list(row); code = r[col_map["code"]]
         if pd.isna(code) or str(code).strip().lower() in ("","nan"): continue
-        saldo=fval(r[3]); buf=fval(r[buf_col])
+        saldo=fval(r[col_map["saldo"]]); buf=fval(r[col_map["buf"]])
         st="out" if saldo<=0 else "critical" if buf<3 else "low" if buf<7 else "ok"
         items.append({"code":str(code).strip(),
-            "name":str(r[1]).strip() if not pd.isna(r[1]) else "",
-            "unit":str(r[2]).strip() if not pd.isna(r[2]) else "",
-            "saldo":saldo,"avg3m":fval(r[avg3m_col]),"buf":buf,"st":st})
+            "name":str(r[col_map["name"]]).strip() if not pd.isna(r[col_map["name"]]) else "",
+            "unit":str(r[col_map["unit"]]).strip() if not pd.isna(r[col_map["unit"]]) else "",
+            "saldo":saldo,"avg3m":fval(r[col_map["avg3m"]]),"buf":buf,"st":st})
     return items
 
 def parse_delivery(path):
@@ -497,6 +526,13 @@ def group_files_by_date():
         print(f"WARNING: Multiple DATA_PENCAPAIAN files found — using newest: {pencapaian.name}")
         for c in pencapaian_candidates:
             print(f"  {'→ SELECTED' if c == pencapaian else '  ignored '}: {c.name}")
+        for c in pencapaian_candidates:
+            if c != pencapaian:
+                try:
+                    c.unlink()
+                    print(f"  Deleted superseded pencapaian file: {c.name}")
+                except OSError as e:
+                    print(f"  WARNING: could not delete {c.name}: {e}")
 
     # Second pass: files with day-only names (MKU 21.xlsx, MKS 21.xlsx)
     # We need to know the year+month — infer from other files or use today
@@ -670,6 +706,17 @@ def main():
 
         if date_str not in m["dates"]:
             m["dates"] = sorted(m["dates"] + [date_str])
+
+        # Date fully processed — remove its source files so stale leftovers
+        # can't get misattributed to the wrong month on a future run.
+        for role in ("so", "stk_mku", "stk_mks", "del_mku", "del_mks"):
+            fp = files.get(role)
+            if fp and fp.exists():
+                try:
+                    fp.unlink()
+                    print(f"  Deleted {fp.name}")
+                except OSError as e:
+                    print(f"  WARNING: could not delete {fp.name}: {e}")
 
     # Write data.js
     raw["off_days"] = sorted(OFF_DAYS)
