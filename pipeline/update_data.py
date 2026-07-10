@@ -535,12 +535,13 @@ def group_files_by_date():
                     print(f"  WARNING: could not delete {c.name}: {e}")
 
     # Second pass: files with day-only names (MKU 21.xlsx, MKS 21.xlsx)
-    # We need to know the year+month — infer from other files or use today
+    # We need to know the year+month — infer from other files or use today.
+    # Floored at today's month: stale/incomplete leftover full-date files from
+    # a past month (which linger forever since they never complete) must never
+    # be able to pull a fresh day-only upload backward into that old month.
     known_dates = sorted(date_files.keys())
-    if known_dates:
-        ref_ym = known_dates[-1][:7]  # use latest known YYYY-MM
-    else:
-        ref_ym = datetime.today().strftime("%Y-%m")
+    today_ym = datetime.today().strftime("%Y-%m")
+    ref_ym = max([today_ym] + [d[:7] for d in known_dates])
 
     for f in files:
         n = norm_name(f.name)
