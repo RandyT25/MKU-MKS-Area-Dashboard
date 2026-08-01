@@ -60,15 +60,18 @@ SALES_NORM_MAP = {
 }
 
 MONTHS_ID = {
-    "jan":"01","feb":"02","mar":"03","apr":"04","april":"04",
+    "jan":"01","januari":"01","january":"01",
+    "feb":"02","februari":"02","february":"02",
+    "mar":"03","maret":"03","march":"03",
+    "apr":"04","april":"04",
     "mei":"05","may":"05",
     "jun":"06","juni":"06","june":"06",
-    "jul":"07","juli":"07",
-    "agu":"08","aug":"08","agus":"08",
-    "sep":"09","sept":"09",
-    "okt":"10","oct":"10",
-    "nov":"11",
-    "des":"12","dec":"12",
+    "jul":"07","juli":"07","july":"07",
+    "agu":"08","agus":"08","agust":"08","agustus":"08","aug":"08","august":"08",
+    "sep":"09","sept":"09","september":"09",
+    "okt":"10","oktober":"10","oct":"10","october":"10",
+    "nov":"11","november":"11",
+    "des":"12","desember":"12","dec":"12","december":"12",
 }
 
 # ── Helpers ────────────────────────────────────────────────────────
@@ -96,7 +99,7 @@ def extract_date_from_name(name):
     m = re.search(r"(\d{4})[-_](\d{2})[-_](\d{2})", name)
     if m: return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
     # Pattern: DD Mon YYYY or DD Mon YY  e.g. "21 Mei 2026", "02 JUN 26", "3 Juni 2026"
-    m = re.search(r"(\d{1,2})[\s_-]+([a-z]{3,5})[\s_-]+(\d{2,4})", name.lower())
+    m = re.search(r"(\d{1,2})[\s_-]+([a-z]{3,9})[\s_-]+(\d{2,4})", name.lower())
     if m:
         mon = MONTHS_ID.get(m.group(2))
         yr = m.group(3)
