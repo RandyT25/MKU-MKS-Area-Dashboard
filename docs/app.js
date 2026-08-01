@@ -311,9 +311,9 @@ function renderTarget(){
   const tp=pct(tot_a,tot_t);
   const cats=Object.keys(T);
   const lastDate=activeDate==='ALL'?RAW.latest:activeDate;
-  const _today=new Date();
-  const dayNum=_today.getDate();
-  const daysInMonth=new Date(_today.getFullYear(),_today.getMonth()+1,0).getDate();
+  const[_ty,_tm,_td]=lastDate.split('-').map(Number);
+  const dayNum=_td;
+  const daysInMonth=new Date(_ty,_tm,0).getDate();
 
   const timePct=Math.round(dayNum/daysInMonth*100);
   const badgeCls=p=>p>=timePct?'b-grn':p>=(timePct*0.75)?'b-org':'b-red';
@@ -784,9 +784,9 @@ function dlPDF(){
   const tot_a=Object.values(T).reduce((s,t)=>s+t.achievement,0);
   const tp=pct(tot_a,tot_t);
   const lastDate=activeDate==='ALL'?RAW.latest:activeDate;
-  const _today2=new Date();
-  const dayNum=_today2.getDate();
-  const daysInMonth=new Date(_today2.getFullYear(),_today2.getMonth()+1,0).getDate();
+  const[_ty2,_tm2,_td2]=lastDate.split('-').map(Number);
+  const dayNum=_td2;
+  const daysInMonth=new Date(_ty2,_tm2,0).getDate();
   const timePct=Math.round(dayNum/daysInMonth*100);
   const top5=Object.entries(agg.rep_rev).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const dateLabel=activeDate==='ALL'?'All Days':fmtD(activeDate);
