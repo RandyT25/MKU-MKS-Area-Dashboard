@@ -722,6 +722,21 @@ def main():
                 except OSError as e:
                     print(f"  WARNING: could not delete {fp.name}: {e}")
 
+    # Daily single-day runs each mark their own day "latest" when processed and
+    # embed its full stock/delivery snapshot (~500KB/day). Once a newer day
+    # supersedes it nothing goes back to trim the old one, so data.js grows
+    # unboundedly. Strip full snapshots from every date except the true latest.
+    true_latest = raw["latest"]
+    for mo in raw["months"].values():
+        for ds, entry in mo.get("stock_by_date", {}).items():
+            if ds != true_latest:
+                entry.pop("MKU_full", None)
+                entry.pop("MKS_full", None)
+        for ds, entry in mo.get("delivery_by_date", {}).items():
+            if ds != true_latest:
+                entry.pop("mku_full", None)
+                entry.pop("mks_full", None)
+
     # Write data.js
     raw["off_days"] = sorted(OFF_DAYS)
     DATA_JS.parent.mkdir(parents=True, exist_ok=True)
