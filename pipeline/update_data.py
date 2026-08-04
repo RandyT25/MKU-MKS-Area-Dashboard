@@ -16,6 +16,7 @@ except ImportError:
 
 REPO_ROOT     = Path(__file__).parent.parent
 UPLOADS_DIR   = REPO_ROOT / "uploads"
+ARCHIVE_DIR   = UPLOADS_DIR / "archive"
 DATA_JS       = REPO_ROOT / "docs" / "data.js"
 DATA_SALES_JS = REPO_ROOT / "docs" / "data_sales.js"
 
@@ -712,8 +713,14 @@ def main():
             m["dates"] = sorted(m["dates"] + [date_str])
 
         # Date fully processed — remove its source files so stale leftovers
-        # can't get misattributed to the wrong month on a future run.
-        for role in ("so", "stk_mku", "stk_mks", "del_mku", "del_mks"):
+        # can't get misattributed to the wrong month on a future run. The
+        # sales app (mku-sales-app-v2) reads del_mku/del_mks straight from
+        # uploads/ on demand, so instead of deleting those two we move them
+        # into uploads/archive/ — out of this function's own glob (still
+        # can't be misattributed on a future run) but still reachable by
+        # the sales app's proxy.
+        ARCHIVE_DIR.mkdir(exist_ok=True)
+        for role in ("so", "stk_mku", "stk_mks"):
             fp = files.get(role)
             if fp and fp.exists():
                 try:
@@ -721,6 +728,14 @@ def main():
                     print(f"  Deleted {fp.name}")
                 except OSError as e:
                     print(f"  WARNING: could not delete {fp.name}: {e}")
+        for role in ("del_mku", "del_mks"):
+            fp = files.get(role)
+            if fp and fp.exists():
+                try:
+                    fp.rename(ARCHIVE_DIR / fp.name)
+                    print(f"  Archived {fp.name}")
+                except OSError as e:
+                    print(f"  WARNING: could not archive {fp.name}: {e}")
 
     # Daily single-day runs each mark their own day "latest" when processed and
     # embed its full stock/delivery snapshot (~500KB/day). Once a newer day
