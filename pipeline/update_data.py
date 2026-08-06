@@ -274,6 +274,14 @@ def parse_stock(path):
         elif "RATA" in h and "3 BULAN" in h: col_map["avg3m"] = i
         elif "BUFFER DAY" in h and "TGL" in h: col_map["buf"] = i
 
+    # "Rata-rata per hari" (average per day, from the 3-month ratio) is
+    # confirmed to always sit in column J of this sheet — fall back to that
+    # fixed position when the header text doesn't match the keyword rule
+    # above (blank/merged header cell, wording drift, etc.), instead of
+    # silently dropping the whole day's stock parse on a KeyError.
+    if "avg3m" not in col_map and df.shape[1] > 9:
+        col_map["avg3m"] = 9
+
     items = []
     for _, row in df.iterrows():
         r = list(row); code = r[col_map["code"]]
