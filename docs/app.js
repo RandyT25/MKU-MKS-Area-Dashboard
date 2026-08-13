@@ -267,10 +267,10 @@ function renderKPIs(){
   const _tbd=(RAW.months[_curMk]||{}).targets_by_date||{};
   const _tdate=activeDate==='ALL'?RAW.latest:activeDate;
   const _T=(_tbd[_tdate]||{}).targets||{};
-  const pencRev=(_T.FOOD&&_T.FOOD.achievement||0)+(_T.BEVERAGE&&_T.BEVERAGE.achievement||0)+(_T.NESTLE&&_T.NESTLE.achievement||0);
+  const pencRev=(_T.FOOD&&_T.FOOD.achievement||0)+(_T.BEVERAGE&&_T.BEVERAGE.achievement||0)+(_T.BAKERY&&_T.BAKERY.achievement||0)+(_T.NESTLE&&_T.NESTLE.achievement||0);
   const totalRev=pencRev>0?pencRev:agg.rev;
   const prevT=prevD?((_tbd[prevD]||{}).targets||{}):null;
-  const prevPencRev=prevT?((prevT.FOOD&&prevT.FOOD.achievement||0)+(prevT.BEVERAGE&&prevT.BEVERAGE.achievement||0)+(prevT.NESTLE&&prevT.NESTLE.achievement||0)):0;
+  const prevPencRev=prevT?((prevT.FOOD&&prevT.FOOD.achievement||0)+(prevT.BEVERAGE&&prevT.BEVERAGE.achievement||0)+(prevT.BAKERY&&prevT.BAKERY.achievement||0)+(prevT.NESTLE&&prevT.NESTLE.achievement||0)):0;
   // Daily SO — always single day, never summed
   const _dailyDate=activeDate==='ALL'?RAW.latest:activeDate;
   const _dailyS=getSummary(_dailyDate);
@@ -304,8 +304,8 @@ function renderKPIs(){
 
 function renderTarget(){
   const {targets:T,area_targets:areas,nestle_areas:nestleA}=getTgt();
-  const COL={FOOD:'#2563eb',BEVERAGE:'#059669',NESTLE:'#7c3aed'};
-  const ICO={FOOD:'🍽️',BEVERAGE:'🥤',NESTLE:'☕'};
+  const COL={FOOD:'#2563eb',BEVERAGE:'#059669',BAKERY:'#d97706',NESTLE:'#7c3aed'};
+  const ICO={FOOD:'🍽️',BEVERAGE:'🥤',BAKERY:'🥐',NESTLE:'☕'};
   const tot_t=Object.values(T).reduce((s,t)=>s+t.target,0);
   const tot_a=Object.values(T).reduce((s,t)=>s+t.achievement,0);
   const tp=pct(tot_a,tot_t);
@@ -318,19 +318,20 @@ function renderTarget(){
   const timePct=Math.round(dayNum/daysInMonth*100);
   const badgeCls=p=>p>=timePct?'b-grn':p>=(timePct*0.75)?'b-org':'b-red';
 
+  const catBg={FOOD:'#eff4ff',BEVERAGE:'#ecfdf5',BAKERY:'#fffbeb',NESTLE:'#f5f3ff'};
+  const catBd={FOOD:'#c7d8fc',BEVERAGE:'#a7f3d0',BAKERY:'#fde68a',NESTLE:'#ddd6fe'};
   document.getElementById('tgt-cats').innerHTML=`
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+    <div style="display:grid;grid-template-columns:repeat(${cats.length+1},1fr);gap:12px">
       <div style="background:linear-gradient(135deg,#eff4ff,#dce8ff);border:1px solid #c7d8fc;border-radius:12px;padding:18px;border-top:3px solid var(--mks)">
         <div style="font-size:.61rem;font-weight:700;color:var(--mks);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">🎯 Grand Total</div>
         <div style="font-size:2rem;font-weight:800;line-height:1;margin-bottom:4px">${tp}%</div>
         <div style="font-size:.7rem;color:var(--txt2);margin-bottom:10px">${fmtRp(tot_a)} / ${fmtRp(tot_t)}</div>
         <div class="pb"><div class="pb-fill" style="width:${Math.min(tp,100)}%;background:var(--mks)"></div></div>
       </div>
-      ${cats.map(c=>{const t=T[c],p=pct(t.achievement,t.target),col=COL[c];
-        const bg=c==='FOOD'?'#eff4ff':c==='BEVERAGE'?'#ecfdf5':'#f5f3ff';
-        const bd=c==='FOOD'?'#c7d8fc':c==='BEVERAGE'?'#a7f3d0':'#ddd6fe';
+      ${cats.map(c=>{const t=T[c],p=pct(t.achievement,t.target),col=COL[c]||'#64748b';
+        const bg=catBg[c]||'#f8fafc',bd=catBd[c]||'#e2e8f0';
         return`<div style="background:${bg};border:1px solid ${bd};border-radius:12px;padding:18px;border-top:3px solid ${col}">
-          <div style="font-size:.61rem;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${ICO[c]} ${c}</div>
+          <div style="font-size:.61rem;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${ICO[c]||''} ${c}</div>
           <div style="font-size:2rem;font-weight:800;line-height:1;margin-bottom:4px">${p}%</div>
           <div style="font-size:.7rem;color:var(--txt2);margin-bottom:10px">${fmtRp(t.achievement)} / ${fmtRp(t.target)}</div>
           <div class="pb"><div class="pb-fill" style="width:${Math.min(p,100)}%;background:${col}"></div></div>
@@ -338,19 +339,21 @@ function renderTarget(){
     </div>`;
 
   if(charts.global)charts.global.destroy();
-  charts.global=new Chart(document.getElementById('ch-global'),{type:'bar',data:{labels:['Food & Bev'],datasets:[
+  charts.global=new Chart(document.getElementById('ch-global'),{type:'bar',data:{labels:['Food, Bev & Bakery'],datasets:[
     {label:'Food Target',data:[T.FOOD?.target||0],backgroundColor:'#c7d8fc',borderRadius:6,stack:'a'},
     {label:'Food Achieved',data:[T.FOOD?.achievement||0],backgroundColor:'#2563eb',borderRadius:6,stack:'b'},
     {label:'Bev Target',data:[T.BEVERAGE?.target||0],backgroundColor:'#a7f3d0',borderRadius:6,stack:'c'},
     {label:'Bev Achieved',data:[T.BEVERAGE?.achievement||0],backgroundColor:'#059669',borderRadius:6,stack:'d'},
+    {label:'Bakery Target',data:[T.BAKERY?.target||0],backgroundColor:'#fde68a',borderRadius:6,stack:'e'},
+    {label:'Bakery Achieved',data:[T.BAKERY?.achievement||0],backgroundColor:'#d97706',borderRadius:6,stack:'f'},
   ]},options:{...COPTS,scales:{...COPTS.scales,y:{...COPTS.scales.y,ticks:{...COPTS.scales.y.ticks,callback:v=>v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(0)+'M':v}}}}});
 
   if(charts.area)charts.area.destroy();
   charts.area=new Chart(document.getElementById('ch-area'),{type:'bar',data:{
     labels:areas.map(a=>a.area.length>14?a.area.slice(0,13)+'…':a.area),
     datasets:[
-      {label:'Achieved',data:areas.map(a=>a.food_ach+a.bev_ach),backgroundColor:'#93b4f8',borderRadius:4,stack:'a'},
-      {label:'Remaining',data:areas.map(a=>Math.max(0,(a.food_target+a.bev_target)-(a.food_ach+a.bev_ach))),backgroundColor:'#e4e8ef',stack:'a'}
+      {label:'Achieved',data:areas.map(a=>a.food_ach+a.bev_ach+(a.bakery_ach||0)),backgroundColor:'#93b4f8',borderRadius:4,stack:'a'},
+      {label:'Remaining',data:areas.map(a=>Math.max(0,(a.food_target+a.bev_target+(a.bakery_target||0))-(a.food_ach+a.bev_ach+(a.bakery_ach||0)))),backgroundColor:'#e4e8ef',stack:'a'}
     ]},options:{...COPTS,scales:{...COPTS.scales,x:{...COPTS.scales.x,stacked:true},y:{...COPTS.scales.y,stacked:true,ticks:{...COPTS.scales.y.ticks,callback:v=>v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(0)+'M':v}}}}});
 
   // Build prev date area map for ↑↓ growth indicator
@@ -364,24 +367,27 @@ function renderTarget(){
   const _prevAreaMap={};_prevAreas.forEach(a=>{_prevAreaMap[a.area]=a.pct;});
   const _prevNestleArr=_prevDate?(RAW.months[_activeMK]?.targets_by_date?.[_prevDate]?.nestle_areas||null):null;
 
+  const _areaTot=a=>a.food_ach+a.bev_ach+(a.bakery_ach||0);
+  const _areaTgt=a=>a.food_target+a.bev_target+(a.bakery_target||0);
   document.getElementById('tbl-area').innerHTML=`
-    <thead><tr><th>Area</th><th>Sales</th><th class="num">Food</th><th class="num">Bev</th><th class="num">Target Total</th><th class="num">Achieved</th><th>% <span style="font-weight:400;color:var(--txt3);font-size:.58rem">(on track ≥${timePct}%)</span></th></tr></thead>
+    <thead><tr><th>Area</th><th>Sales</th><th class="num">Food</th><th class="num">Bev</th><th class="num">Bakery</th><th class="num">Target Total</th><th class="num">Achieved</th><th>% <span style="font-weight:400;color:var(--txt3);font-size:.58rem">(on track ≥${timePct}%)</span></th></tr></thead>
     <tbody>${areas.map(a=>{const p=a.pct,cls=badgeCls(p);
       const prevP=_prevAreaMap[a.area];
       const delta=prevP!=null?p-prevP:null;
       const growthHtml=delta!=null&&delta!==0?`<span style="font-size:.6rem;font-weight:700;color:${delta>0?'var(--grn)':'var(--mku)'};margin-left:4px">${delta>0?'↑':'↓'}${Math.abs(delta)}%</span>`:'';
       return`<tr>
       <td style="font-weight:600">${a.area}</td><td style="color:var(--txt2);font-size:.68rem">${a.sales}</td>
-      <td class="num">${fmtRp(a.food_ach)}</td><td class="num">${fmtRp(a.bev_ach)}</td>
-      <td class="num" style="color:var(--txt3)">${fmtRp(a.food_target+a.bev_target)}</td>
-      <td class="num" style="font-weight:700">${fmtRp(a.food_ach+a.bev_ach)}</td>
+      <td class="num">${fmtRp(a.food_ach)}</td><td class="num">${fmtRp(a.bev_ach)}</td><td class="num">${fmtRp(a.bakery_ach||0)}</td>
+      <td class="num" style="color:var(--txt3)">${fmtRp(_areaTgt(a))}</td>
+      <td class="num" style="font-weight:700">${fmtRp(_areaTot(a))}</td>
       <td><span class="badge ${cls}">${p}%</span>${growthHtml}</td></tr>`;}).join('')}</tbody>
     <tfoot><tr><td colspan="2"><strong>GRAND TOTAL</strong></td>
       <td class="num"><strong style="color:var(--mks)">${fmtRp(areas.reduce((s,a)=>s+a.food_ach,0))}</strong></td>
       <td class="num"><strong style="color:var(--grn)">${fmtRp(areas.reduce((s,a)=>s+a.bev_ach,0))}</strong></td>
-      <td class="num">${fmtRp(areas.reduce((s,a)=>s+a.food_target+a.bev_target,0))}</td>
-      <td class="num"><strong>${fmtRp(areas.reduce((s,a)=>s+a.food_ach+a.bev_ach,0))}</strong></td>
-      <td>${(()=>{const tp2=pct(areas.reduce((s,a)=>s+a.food_ach+a.bev_ach,0),areas.reduce((s,a)=>s+a.food_target+a.bev_target,0));const prevTotP=_prevDate?pct((_prevAreas.reduce((s,a)=>s+a.food_ach+a.bev_ach,0)),(_prevAreas.reduce((s,a)=>s+a.food_target+a.bev_target,0))):null;const td=prevTotP!=null?tp2-prevTotP:null;const tarr=td!=null&&td!==0?`<span style="font-size:.6rem;font-weight:700;color:${td>0?'var(--grn)':' var(--mku)'};margin-left:4px">${td>0?'↑':'↓'}${Math.abs(td)}%</span>`:'';return`<span class="badge ${badgeCls(tp2)}">${tp2}%</span>${tarr}`;})()}</td></tr></tfoot>`;
+      <td class="num"><strong style="color:#d97706">${fmtRp(areas.reduce((s,a)=>s+(a.bakery_ach||0),0))}</strong></td>
+      <td class="num">${fmtRp(areas.reduce((s,a)=>s+_areaTgt(a),0))}</td>
+      <td class="num"><strong>${fmtRp(areas.reduce((s,a)=>s+_areaTot(a),0))}</strong></td>
+      <td>${(()=>{const tp2=pct(areas.reduce((s,a)=>s+_areaTot(a),0),areas.reduce((s,a)=>s+_areaTgt(a),0));const prevTotP=_prevDate?pct((_prevAreas.reduce((s,a)=>s+_areaTot(a),0)),(_prevAreas.reduce((s,a)=>s+_areaTgt(a),0))):null;const td=prevTotP!=null?tp2-prevTotP:null;const tarr=td!=null&&td!==0?`<span style="font-size:.6rem;font-weight:700;color:${td>0?'var(--grn)':' var(--mku)'};margin-left:4px">${td>0?'↑':'↓'}${Math.abs(td)}%</span>`:'';return`<span class="badge ${badgeCls(tp2)}">${tp2}%</span>${tarr}`;})()}</td></tr></tfoot>`;
 
   document.getElementById('nestle-table').innerHTML=`
     <thead><tr><th>Channel</th><th>Sales</th><th class="num">Target</th><th class="num">Achieved</th><th>% <span style="font-weight:400;color:var(--txt3);font-size:.58rem">(on track ≥${timePct}%)</span></th></tr></thead>
@@ -439,18 +445,20 @@ function renderSO(){
   const _soT=(_soTbd[_soDate]||{}).targets||{};
   const segFood=(_soT.FOOD&&_soT.FOOD.achievement)||0;
   const segBev=(_soT.BEVERAGE&&_soT.BEVERAGE.achievement)||0;
+  const segBakery=(_soT.BAKERY&&_soT.BAKERY.achievement)||0;
   const segNes=(_soT.NESTLE&&_soT.NESTLE.achievement)||0;
+  const segTotal=segFood+segBev+segBakery+segNes;
   const segEl=document.getElementById('ch-seg');
-  if(segEl&&(segFood+segBev+segNes)>0){
+  if(segEl&&segTotal>0){
     if(charts.seg)charts.seg.destroy();
     charts.seg=new Chart(segEl,{type:'doughnut',data:{
-      labels:['Food','Beverage','Nestlé'],
-      datasets:[{data:[segFood,segBev,segNes],
-        backgroundColor:['#2563eb','#059669','#7c3aed'],
+      labels:['Food','Beverage','Bakery','Nestlé'],
+      datasets:[{data:[segFood,segBev,segBakery,segNes],
+        backgroundColor:['#2563eb','#059669','#d97706','#7c3aed'],
         borderWidth:0,hoverOffset:6}]
     },options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{position:'bottom',labels:{color:'#8a93b0',font:{size:11},padding:12}},
-        tooltip:{callbacks:{label:function(ctx){return' '+ctx.label+': '+fmtRp(ctx.parsed)+' ('+Math.round(ctx.parsed/(segFood+segBev+segNes)*100)+'%)';}}}
+        tooltip:{callbacks:{label:function(ctx){return' '+ctx.label+': '+fmtRp(ctx.parsed)+' ('+Math.round(ctx.parsed/segTotal*100)+'%)';}}}
       }
     }});
   }
@@ -794,7 +802,7 @@ function dlPDF(){
   const divMapPdf={};RAW.so.forEach(r=>{divMapPdf[r.sales]=r.division;});
   const htmlStr=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${mon} Report</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Plus Jakarta Sans',sans-serif;padding:28px 32px;font-size:11px;color:#1a2035;background:#fff;}.hdr{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;padding-bottom:14px;border-bottom:3px solid #1a2035;}.ht{font-size:1.4rem;font-weight:800;}.mku{color:#dc2626;}.mks{color:#2563eb;}.badge-date{background:#eff4ff;color:#2563eb;font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:4px;margin-top:6px;display:inline-block;}.section-title{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#8a93b0;margin:14px 0 7px;padding-bottom:5px;border-bottom:1px solid #e4e8ef;}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px;}.kpi{border:1px solid #e4e8ef;border-radius:8px;padding:10px 12px;border-left:3px solid;}.kl{font-size:.55rem;font-weight:700;color:#8a93b0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}.kv{font-size:1.05rem;font-weight:800;}.tgt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px;}.tgt{border:1px solid #e4e8ef;border-radius:8px;padding:10px 12px;}.tn{font-size:.63rem;font-weight:700;margin-bottom:4px;}.tp{font-size:1.1rem;font-weight:800;margin-bottom:2px;}.pb{background:#e4e8ef;border-radius:99px;height:5px;overflow:hidden;margin-bottom:3px;}.pbf{height:5px;border-radius:99px;}.psub{font-size:.57rem;color:#8a93b0;}.grand{background:linear-gradient(135deg,#eff4ff,#dce8ff);border:1px solid #c7d8fc;border-radius:8px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}.grand-pct{font-size:2rem;font-weight:800;color:#1a2035;}table{width:100%;border-collapse:collapse;font-size:.67rem;margin-bottom:10px;}th{background:#f4f6f9;padding:6px 8px;text-align:left;font-size:.55rem;font-weight:700;color:#8a93b0;text-transform:uppercase;border-bottom:1px solid #e4e8ef;}td{padding:5px 8px;border-bottom:1px solid #f4f6f9;vertical-align:middle;}td.r{text-align:right;}.pbar{background:#e4e8ef;border-radius:99px;height:4px;width:70px;display:inline-block;vertical-align:middle;overflow:hidden;}.pbar-f{height:4px;border-radius:99px;}.badge{display:inline-block;font-size:.55rem;font-weight:700;padding:2px 6px;border-radius:3px;}tfoot td{font-weight:700;background:#f8f9fd;border-top:2px solid #e4e8ef;}.ftr{margin-top:16px;padding-top:10px;border-top:1px solid #e4e8ef;display:flex;justify-content:space-between;font-size:.57rem;color:#8a93b0;}@media print{body{padding:14px 18px;}@page{margin:1cm;size:A4;}}</style></head><body>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Plus Jakarta Sans',sans-serif;padding:28px 32px;font-size:11px;color:#1a2035;background:#fff;}.hdr{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;padding-bottom:14px;border-bottom:3px solid #1a2035;}.ht{font-size:1.4rem;font-weight:800;}.mku{color:#dc2626;}.mks{color:#2563eb;}.badge-date{background:#eff4ff;color:#2563eb;font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:4px;margin-top:6px;display:inline-block;}.section-title{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#8a93b0;margin:14px 0 7px;padding-bottom:5px;border-bottom:1px solid #e4e8ef;}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px;}.kpi{border:1px solid #e4e8ef;border-radius:8px;padding:10px 12px;border-left:3px solid;}.kl{font-size:.55rem;font-weight:700;color:#8a93b0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}.kv{font-size:1.05rem;font-weight:800;}.tgt-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px;}.tgt{border:1px solid #e4e8ef;border-radius:8px;padding:10px 12px;}.tn{font-size:.63rem;font-weight:700;margin-bottom:4px;}.tp{font-size:1.1rem;font-weight:800;margin-bottom:2px;}.pb{background:#e4e8ef;border-radius:99px;height:5px;overflow:hidden;margin-bottom:3px;}.pbf{height:5px;border-radius:99px;}.psub{font-size:.57rem;color:#8a93b0;}.grand{background:linear-gradient(135deg,#eff4ff,#dce8ff);border:1px solid #c7d8fc;border-radius:8px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}.grand-pct{font-size:2rem;font-weight:800;color:#1a2035;}table{width:100%;border-collapse:collapse;font-size:.67rem;margin-bottom:10px;}th{background:#f4f6f9;padding:6px 8px;text-align:left;font-size:.55rem;font-weight:700;color:#8a93b0;text-transform:uppercase;border-bottom:1px solid #e4e8ef;}td{padding:5px 8px;border-bottom:1px solid #f4f6f9;vertical-align:middle;}td.r{text-align:right;}.pbar{background:#e4e8ef;border-radius:99px;height:4px;width:70px;display:inline-block;vertical-align:middle;overflow:hidden;}.pbar-f{height:4px;border-radius:99px;}.badge{display:inline-block;font-size:.55rem;font-weight:700;padding:2px 6px;border-radius:3px;}tfoot td{font-weight:700;background:#f8f9fd;border-top:2px solid #e4e8ef;}.ftr{margin-top:16px;padding-top:10px;border-top:1px solid #e4e8ef;display:flex;justify-content:space-between;font-size:.57rem;color:#8a93b0;}@media print{body{padding:14px 18px;}@page{margin:1cm;size:A4;}}</style></head><body>
 <div class="hdr"><div><div class="ht"><span class="mku">MKU</span> &amp; <span class="mks">MKS</span> — ${mon} Report</div><div class="badge-date">📅 ${dateLabel} · Generated ${new Date().toLocaleDateString('id-ID')}</div></div><div style="font-size:.63rem;color:#8a93b0;text-align:right">Area Manager Dashboard<br><strong style="color:#1a2035">Confidential</strong></div></div>
 <div class="section-title">📊 Key Performance Indicators</div>
 <div class="kpis">
@@ -804,12 +812,12 @@ function dlPDF(){
   <div class="kpi" style="border-left-color:#d97706"><div class="kl">Time Elapsed</div><div class="kv" style="color:#d97706">${timePct}%</div><div style="font-size:.58rem;color:#8a93b0;margin-top:2px">Day ${dayNum} of ${daysInMonth} · on-track ≥${timePct}%</div></div>
 </div>
 <div class="section-title">🎯 Target vs Achievement</div>
-<div class="grand"><div><div style="font-size:.6rem;font-weight:700;color:#2563eb;text-transform:uppercase;margin-bottom:4px">🎯 Grand Total (Food + Bev + Nestlé)</div><div style="font-size:.68rem;color:#4a5472">${fmtRp(tot_a)} achieved of ${fmtRp(tot_t)} target</div></div><div class="grand-pct">${tp}%</div></div>
-<div class="tgt-grid">${Object.entries(T).map(([c,t])=>{const p=pct(t.achievement,t.target),col=colP(p);return`<div class="tgt"><div class="tn">${{FOOD:'🍽️ FOOD',BEVERAGE:'🥤 BEVERAGE',NESTLE:'☕ NESTLÉ'}[c]||c}</div><div class="tp" style="color:${col}">${p}%</div><div class="pb"><div class="pbf" style="width:${Math.min(p,100)}%;background:${col}"></div></div><div class="psub">${fmtRp(t.achievement)} / ${fmtRp(t.target)}</div></div>`;}).join('')}</div>
+<div class="grand"><div><div style="font-size:.6rem;font-weight:700;color:#2563eb;text-transform:uppercase;margin-bottom:4px">🎯 Grand Total (Food + Bev + Bakery + Nestlé)</div><div style="font-size:.68rem;color:#4a5472">${fmtRp(tot_a)} achieved of ${fmtRp(tot_t)} target</div></div><div class="grand-pct">${tp}%</div></div>
+<div class="tgt-grid">${Object.entries(T).map(([c,t])=>{const p=pct(t.achievement,t.target),col=colP(p);return`<div class="tgt"><div class="tn">${{FOOD:'🍽️ FOOD',BEVERAGE:'🥤 BEVERAGE',BAKERY:'🥐 BAKERY',NESTLE:'☕ NESTLÉ'}[c]||c}</div><div class="tp" style="color:${col}">${p}%</div><div class="pb"><div class="pbf" style="width:${Math.min(p,100)}%;background:${col}"></div></div><div class="psub">${fmtRp(t.achievement)} / ${fmtRp(t.target)}</div></div>`;}).join('')}</div>
 <div class="section-title">📍 Area Performance Detail</div>
-<table><thead><tr><th>Area</th><th>Sales Rep</th><th class="r">Food Ach</th><th class="r">Bev Ach</th><th class="r">Target</th><th class="r">Achieved</th><th>Progress (≥${timePct}%)</th></tr></thead>
-<tbody>${(areas||[]).map(a=>{const p=a.pct,col=colP(p);return`<tr><td style="font-weight:600;font-size:.65rem">${a.area}</td><td style="color:#8a93b0;font-size:.61rem">${a.sales}</td><td class="r">${fmtRp(a.food_ach)}</td><td class="r">${fmtRp(a.bev_ach)}</td><td class="r" style="color:#8a93b0">${fmtRp(a.food_target+a.bev_target)}</td><td class="r" style="font-weight:700">${fmtRp(a.food_ach+a.bev_ach)}</td><td><div style="display:flex;align-items:center;gap:5px"><div class="pbar"><div class="pbar-f" style="width:${Math.min(p,100)}%;background:${col}"></div></div><span style="font-weight:700;color:${col}">${p}%</span></div></td></tr>`;}).join('')}</tbody>
-<tfoot><tr><td colspan="2">GRAND TOTAL</td><td class="r" style="color:#2563eb">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_ach,0))}</td><td class="r" style="color:#059669">${fmtRp((areas||[]).reduce((s,a)=>s+a.bev_ach,0))}</td><td class="r">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_target+a.bev_target,0))}</td><td class="r">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_ach+a.bev_ach,0))}</td><td><span style="font-weight:700;color:${colP(tp)}">${tp}%</span></td></tr></tfoot></table>
+<table><thead><tr><th>Area</th><th>Sales Rep</th><th class="r">Food Ach</th><th class="r">Bev Ach</th><th class="r">Bakery Ach</th><th class="r">Target</th><th class="r">Achieved</th><th>Progress (≥${timePct}%)</th></tr></thead>
+<tbody>${(areas||[]).map(a=>{const p=a.pct,col=colP(p),bkA=a.bakery_ach||0,bkT=a.bakery_target||0;return`<tr><td style="font-weight:600;font-size:.65rem">${a.area}</td><td style="color:#8a93b0;font-size:.61rem">${a.sales}</td><td class="r">${fmtRp(a.food_ach)}</td><td class="r">${fmtRp(a.bev_ach)}</td><td class="r">${fmtRp(bkA)}</td><td class="r" style="color:#8a93b0">${fmtRp(a.food_target+a.bev_target+bkT)}</td><td class="r" style="font-weight:700">${fmtRp(a.food_ach+a.bev_ach+bkA)}</td><td><div style="display:flex;align-items:center;gap:5px"><div class="pbar"><div class="pbar-f" style="width:${Math.min(p,100)}%;background:${col}"></div></div><span style="font-weight:700;color:${col}">${p}%</span></div></td></tr>`;}).join('')}</tbody>
+<tfoot><tr><td colspan="2">GRAND TOTAL</td><td class="r" style="color:#2563eb">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_ach,0))}</td><td class="r" style="color:#059669">${fmtRp((areas||[]).reduce((s,a)=>s+a.bev_ach,0))}</td><td class="r" style="color:#d97706">${fmtRp((areas||[]).reduce((s,a)=>s+(a.bakery_ach||0),0))}</td><td class="r">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_target+a.bev_target+(a.bakery_target||0),0))}</td><td class="r">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_ach+a.bev_ach+(a.bakery_ach||0),0))}</td><td><span style="font-weight:700;color:${colP(tp)}">${tp}%</span></td></tr></tfoot></table>
 <div class="section-title">☕ Nestlé Channel Detail</div>
 <table><thead><tr><th>Channel</th><th>Sales Rep</th><th class="r">Target</th><th class="r">Achievement</th><th>Progress</th></tr></thead>
 <tbody>${(nestleA||[]).map(n=>{const p=pct(n.achievement,n.target),col=colP(p);return`<tr><td style="font-weight:600">${n.area}</td><td style="color:#8a93b0;font-size:.61rem">${n.sales||'—'}</td><td class="r" style="color:#8a93b0">${fmtRp(n.target)}</td><td class="r" style="font-weight:700">${fmtRp(n.achievement)}</td><td><div style="display:flex;align-items:center;gap:5px"><div class="pbar"><div class="pbar-f" style="width:${Math.min(p,100)}%;background:${col}"></div></div><span style="font-weight:700;color:${col}">${p}%</span></div></td></tr>`;}).join('')}</tbody>

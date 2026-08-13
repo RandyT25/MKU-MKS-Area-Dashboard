@@ -376,16 +376,26 @@ def parse_targets(path, date_str):
             if keyword.lower() in cell(rows[i], col).lower(): return i
         return None
 
-    # MKS input section
+    # MKS input section — column order has shifted before (Bakery inserted
+    # between Beverage and Balian in Aug 2026), so map columns by header
+    # text instead of trusting fixed positions.
     input_start = find_row("Nama_Kry", col=1)
     input_end = find_row("INPUT: DATA NESTLE", col=1)
     mks_input = {}
     if input_start is not None and input_end is not None:
+        input_hdr = rows[input_start]
+        mks_col = {}
+        for c in range(2, len(input_hdr)):
+            h = cell(input_hdr, c).upper()
+            if "BAKERY" in h: mks_col["bakery"] = c
+            elif "FOOD" in h: mks_col["food"] = c
+            elif "BEVERAGE" in h: mks_col["bev"] = c
+            elif "BALIAN" in h: mks_col["balian"] = c
         for i in range(input_start+1, input_end):
             name = cell(rows[i], 1)
             if not name: continue
-            mks_input[name] = {"food":fval(rows[i][2]),"bev":fval(rows[i][3]),
-                "balian":fval(rows[i][4]) if len(rows[i])>4 else 0.0}
+            r = rows[i]
+            mks_input[name] = {k: (fval(r[c]) if c < len(r) else 0.0) for k, c in mks_col.items()}
 
     # Nestlé input section
     nestle_start = find_row("INPUT: DATA NESTLE", col=1)
@@ -408,42 +418,71 @@ def parse_targets(path, date_str):
     np1_ach = nestle_raw.get("NP1",0.0)
     np2_ach = nestle_raw.get("NP2",0.0)
 
-    # Global category totals
+    # Global category totals — capture every named category present (not just
+    # a fixed FOOD/BEVERAGE/NESTLE trio), so a new one (e.g. BAKERY, split out
+    # of FOOD in Aug 2026) doesn't get silently skipped and disappear from
+    # revenue totals.
     global_start = find_row("KATAGORI", col=1)
-    food_total_t=food_total_a=bev_total_t=bev_total_a=nes_total_t=nes_total_a=0
+    KNOWN_CATS = ("FOOD","BEVERAGE","BAKERY","NESTLE")
+    cat_totals = {}
     if global_start is not None:
         for i in range(global_start+1, global_start+6):
             if i >= len(rows): break
             cat = cell(rows[i], 1).upper()
-            if cat=="FOOD": food_total_t=rint(rows[i][3]); food_total_a=rint(rows[i][4])
-            elif cat=="BEVERAGE": bev_total_t=rint(rows[i][3]); bev_total_a=rint(rows[i][4])
-            elif cat=="NESTLE": nes_total_t=rint(rows[i][3]); nes_total_a=rint(rows[i][4])
+            if cat in KNOWN_CATS:
+                cat_totals[cat] = {"target":rint(rows[i][3]), "achievement":rint(rows[i][4])}
+    food_total_t=cat_totals.get("FOOD",{}).get("target",0); food_total_a=cat_totals.get("FOOD",{}).get("achievement",0)
+    bev_total_t=cat_totals.get("BEVERAGE",{}).get("target",0); bev_total_a=cat_totals.get("BEVERAGE",{}).get("achievement",0)
+    bakery_total_t=cat_totals.get("BAKERY",{}).get("target",0); bakery_total_a=cat_totals.get("BAKERY",{}).get("achievement",0)
+    nes_total_t=cat_totals.get("NESTLE",{}).get("target",0); nes_total_a=cat_totals.get("NESTLE",{}).get("achievement",0)
 
-    # Area targets
+    # Area targets — the TARGET/ACHIEVEMENT column groups can widen (Bakery
+    # was inserted as a new sub-category in Aug 2026), so read the two header
+    # rows to map columns by name instead of trusting fixed positions.
     fb_start = None
     for i, r in enumerate(rows):
-        if cell(r,1).upper() == "FOOD & BEVERAGES": fb_start=i; break
+        up = cell(r,1).upper()
+        if up.startswith("FOOD") and "BEVERAGE" in up: fb_start=i; break
     area_targets = []
-    if fb_start is not None:
-        i = fb_start+2
+    if fb_start is not None and fb_start+2 < len(rows):
+        grp_hdr, sub_hdr = rows[fb_start+1], rows[fb_start+2]
+        tgt_start = next((c for c in range(len(grp_hdr)) if "TARGET" in cell(grp_hdr,c).upper()), None)
+        ach_start = next((c for c in range(len(grp_hdr)) if "ACHIEVEMENT" in cell(grp_hdr,c).upper()), None)
+        tgt_col, ach_col = {}, {}
+        if tgt_start is not None and ach_start is not None:
+            width = ach_start - tgt_start
+            for c in range(tgt_start, ach_start):
+                name = cell(sub_hdr,c).upper()
+                if name: tgt_col[name] = c
+            for c in range(ach_start, ach_start+width):
+                name = cell(sub_hdr,c).upper()
+                if name: ach_col[name] = c
+
+        def gv(r, colmap, key):
+            c = colmap.get(key)
+            return fval(r[c]) if c is not None and c < len(r) else 0.0
+
+        i = fb_start+3
         while i < len(rows):
             r=rows[i]; area_raw=cell(r,1); sales_raw=cell(r,2); area_up=area_raw.upper()
             if not area_raw: i+=1; continue
             if area_up in ("GRAND TOTAL","NESTLE","BALIAN","CHANNEL / AREA","AREA"): break
-            food_t=rint(r[3]); bev_t=rint(r[4]); food_ach=rint(r[6]); bev_ach=rint(r[7])
+            food_t=rint(gv(r,tgt_col,"FOOD")); bev_t=rint(gv(r,tgt_col,"BEVERAGE")); bakery_t=rint(gv(r,tgt_col,"BAKERY"))
+            food_ach=rint(gv(r,ach_col,"FOOD")); bev_ach=rint(gv(r,ach_col,"BEVERAGE")); bakery_ach=rint(gv(r,ach_col,"BAKERY"))
+            total_t=food_t+bev_t+bakery_t; total_a=food_ach+bev_ach+bakery_ach
             sales_n = SALES_NORM_MAP.get(sales_raw.upper(), sales_raw)
             if "NAUGHTY NURIS" in area_up:
                 an = "NAUGHTY NURIS (SANUR)" if "MADE LUIH" in sales_raw.upper() or "NN MADE" in sales_raw.upper() else "NAUGHTY NURIS (SEMINYAK)"
                 sales_n = "I Made Luih" if "SANUR" in an else "Sujana"
-                pct_v = round(food_ach/food_t*100) if food_t>0 else 0
-                area_targets.append({"area":an,"sales":sales_n,"food_target":food_t,"bev_target":0,"food_ach":food_ach,"bev_ach":0,"pct":pct_v})
+                pct_v = round(total_a/total_t*100) if total_t>0 else 0
+                area_targets.append({"area":an,"sales":sales_n,"food_target":food_t,"bev_target":bev_t,"bakery_target":bakery_t,
+                    "food_ach":food_ach,"bev_ach":bev_ach,"bakery_ach":bakery_ach,"pct":pct_v})
                 i+=1; continue
             matched = next((v for k,v in AREA_NAME_MAP.items() if k in area_up), None)
             if not matched: i+=1; continue
-            total_t=food_t+bev_t; total_a=food_ach+bev_ach
             pct_v = round(total_a/total_t*100) if total_t>0 else 0
-            area_targets.append({"area":matched,"sales":sales_n,"food_target":food_t,"bev_target":bev_t,
-                "food_ach":food_ach,"bev_ach":bev_ach,"pct":pct_v})
+            area_targets.append({"area":matched,"sales":sales_n,"food_target":food_t,"bev_target":bev_t,"bakery_target":bakery_t,
+                "food_ach":food_ach,"bev_ach":bev_ach,"bakery_ach":bakery_ach,"pct":pct_v})
             i+=1
 
     # Balian
@@ -482,6 +521,7 @@ def parse_targets(path, date_str):
 
     return {"targets":{"FOOD":{"target":food_total_t,"achievement":food_total_a},
         "BEVERAGE":{"target":bev_total_t,"achievement":bev_total_a},
+        "BAKERY":{"target":bakery_total_t,"achievement":bakery_total_a},
         "NESTLE":{"target":nes_total_t,"achievement":nes_total_a}},
         "nestle_areas":[
             {"area":"NP-1","sales":"Ridwan","target":rint(np1_t),"achievement":rint(np1_ach),"pct":np1_pct},
@@ -686,10 +726,10 @@ def main():
         try:
             targets_entry = parse_targets(pencapaian, date_str)
             t = targets_entry["targets"]
-            print(f"  FOOD: {t['FOOD']['achievement']:,.0f}/{t['FOOD']['target']:,.0f} | BEV: {t['BEVERAGE']['achievement']:,.0f}/{t['BEVERAGE']['target']:,.0f} | NES: {t['NESTLE']['achievement']:,.0f}/{t['NESTLE']['target']:,.0f}")
+            print(f"  FOOD: {t['FOOD']['achievement']:,.0f}/{t['FOOD']['target']:,.0f} | BEV: {t['BEVERAGE']['achievement']:,.0f}/{t['BEVERAGE']['target']:,.0f} | BAKERY: {t['BAKERY']['achievement']:,.0f}/{t['BAKERY']['target']:,.0f} | NES: {t['NESTLE']['achievement']:,.0f}/{t['NESTLE']['target']:,.0f}")
         except Exception as e:
             print(f"  WARNING: targets skipped ({e})")
-            targets_entry = {"targets":{"FOOD":{"target":0,"achievement":0},"BEVERAGE":{"target":0,"achievement":0},"NESTLE":{"target":0,"achievement":0}},"nestle_areas":[],"area_targets":[],"balian":[]}
+            targets_entry = {"targets":{"FOOD":{"target":0,"achievement":0},"BEVERAGE":{"target":0,"achievement":0},"BAKERY":{"target":0,"achievement":0},"NESTLE":{"target":0,"achievement":0}},"nestle_areas":[],"area_targets":[],"balian":[]}
 
         # Store so_summary for every date (compressed)
         m["so_summary"][date_str] = compress_so(so_rows)
