@@ -39,6 +39,7 @@ SALES_MAP = {
     "WIRA":"Wira","RIDWAN":"Ridwan","REDI":"Redi","GEK MAS":"Gek Mas",
     "NP1":"Ridwan","NP 1":"Ridwan","NP2":"Redi","NP 2":"Redi",
     "NP3":"Gek Mas","NP 3":"Gek Mas","NP4":"Gek Mas","NP5":"Gek Mas",
+    "VACANT":"Ronald","Vacant":"Ronald",
     "KA":"KA","Management Bali":"Management Bali","MANAGEMENT BALI":"Management Bali",
 }
 
