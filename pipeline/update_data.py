@@ -38,8 +38,8 @@ SALES_MAP = {
     "PICROM STALYON":"Picrom","Picrom Stalyon":"Picrom","PICROM":"Picrom",
     "SALES RETAIL":"Sales Retail","JUNI":"Juni","MONICA":"Monica","SUJANA":"Sujana",
     "EKA":"Eka","TAUFIK":"Taufik","DEWI KRISTIANI":"Dewi Kristiani","WIRA":"Wira",
-    "RIDWAN":"Ridwan","REDI":"Redi","GEK MAS":"Gek Mas",
-    "NP1":"Ridwan","NP 1":"Ridwan","NP2":"Redi","NP 2":"Redi",
+    "RIDWAN":"Ridwan","REDI":"Widi","WIDI":"Widi","GEK MAS":"Gek Mas",
+    "NP1":"Ridwan","NP 1":"Ridwan","NP2":"Widi","NP 2":"Widi",
     "NP3":"Gek Mas","NP 3":"Gek Mas","NP4":"Gek Mas",
     "VACANT":"Ronald","Vacant":"Ronald",
     "KA":"KA","Management Bali":"Management Bali","MANAGEMENT BALI":"Management Bali",
@@ -526,7 +526,7 @@ def parse_targets(path, date_str):
         "NESTLE":{"target":nes_total_t,"achievement":nes_total_a}},
         "nestle_areas":[
             {"area":"NP-1","sales":"Ridwan","target":rint(np1_t),"achievement":rint(np1_ach),"pct":np1_pct},
-            {"area":"NP-2","sales":"Redi","target":rint(np2_t),"achievement":rint(np2_ach),"pct":np2_pct},
+            {"area":"NP-2","sales":"Widi","target":rint(np2_t),"achievement":rint(np2_ach),"pct":np2_pct},
             {"area":"NP-3","sales":"Gek Mas","target":rint(np3_t),"achievement":rint(np3_final),"pct":np3_pct}],
         "area_targets":area_targets,"balian":balian_rows}
 
