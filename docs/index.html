@@ -149,7 +149,10 @@
 
 <!-- LOAD ORDER: data.js first, then Chart.js, then app.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="data.js"></script>
+<script>
+  var cb = new Date().getTime();
+  document.write('<script src="data.js?v=' + cb + '"><\\/script>');
+</script>
 <script>
 var _mk=RAW.latest?RAW.latest.slice(0,7):Object.keys(RAW.months||{}).sort().pop();
 function _applyMonth(key){
@@ -194,7 +197,7 @@ _applyMonth(_mk);
   s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
   s.onload = function() {
     var a = document.createElement('script');
-    a.src='app.js';a.onload=function(){if(typeof buildMonthMenu==='function')buildMonthMenu();};
+    a.src='app.js?v=' + new Date().getTime();a.onload=function(){if(typeof buildMonthMenu==='function')buildMonthMenu();};
     document.body.appendChild(a);
   };
   document.body.appendChild(s);
