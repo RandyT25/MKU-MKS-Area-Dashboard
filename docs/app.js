@@ -145,13 +145,29 @@ function getDel(){
     const dd=_ddbd[d];if(!dd)return;
     // Latest day has full records
     if(isLatest(d)){
-      if(company==='ALL'||company==='MKU')(dd.mku_full||[]).forEach(r=>all.push({...r,co:'MKU',date:d}));
-      if(company==='ALL'||company==='MKS')(dd.mks_full||[]).forEach(r=>all.push({...r,co:'MKS',date:d}));
+      const soMap = {};
+      if (d === RAW.latest) {
+         RAW.so.forEach(s => {
+            if(!soMap[s.no_so]) soMap[s.no_so] = {so:0, fj:0};
+            soMap[s.no_so].so += s.so_pcs||0;
+            soMap[s.no_so].fj += s.fj_pcs||0;
+         });
+      }
+      if(company==='ALL'||company==='MKU')(dd.mku_full||[]).forEach(r=>{
+         let ket = r.ket;
+         if(soMap[r.no_so]) ket = soMap[r.no_so].fj >= soMap[r.no_so].so ? 'FULFILLED' : 'UNFULFILLED';
+         all.push({...r,co:'MKU',date:d, ket});
+      });
+      if(company==='ALL'||company==='MKS')(dd.mks_full||[]).forEach(r=>{
+         let ket = r.ket;
+         if(soMap[r.no_so]) ket = soMap[r.no_so].fj >= soMap[r.no_so].so ? 'FULFILLED' : 'UNFULFILLED';
+         all.push({...r,co:'MKS',date:d, ket});
+      });
     } else {
       // Compressed: rebuild minimal records from summary
       const issues=dd.issues||[];
-      if(company!=='MKU') issues.filter(r=>r.co==='MKS'||!r.co).forEach(r=>all.push({...r,date:d}));
-      if(company!=='MKS') issues.filter(r=>r.co==='MKU').forEach(r=>all.push({...r,date:d}));
+      if(company!=='MKU') issues.filter(r=>r.co==='MKS'||!r.co).forEach(r=>all.push({...r,date:d,ket:'UNFULFILLED'}));
+      if(company!=='MKS') issues.filter(r=>r.co==='MKU').forEach(r=>all.push({...r,date:d,ket:'UNFULFILLED'}));
     }
   });
   return all;
@@ -161,18 +177,31 @@ function getDel(){
 function getDelStats(){
   const dates=activeDate==='ALL'?RAW.dates:[activeDate];
   let tot=0,ful=0,by_area={};
+  const allDel = getDel();
   dates.forEach(d=>{
+    const ds = getSummary(d);
     const _smk=d.slice(0,7);const _smo=RAW.months[_smk]||{};const _sdbd=_smo.delivery_by_date||RAW.delivery_by_date||{};
     const dd=_sdbd[d];if(!dd)return;
     if(isLatest(d)){
-      let rows=[];
-      if(company==='ALL'||company==='MKU')(dd.mku_full||[]).forEach(r=>rows.push({...r,co:'MKU'}));
-      if(company==='ALL'||company==='MKS')(dd.mks_full||[]).forEach(r=>rows.push({...r,co:'MKS'}));
-      tot+=rows.length;ful+=rows.filter(r=>r.ket==='FULFILLED').length;
-      rows.forEach(r=>{const a=(r.area||'').trim()||'All Areas';if(!by_area[a])by_area[a]={t:0,ok:0};by_area[a].t+=1;if(r.ket==='FULFILLED')by_area[a].ok+=1;});
+      const dRows = allDel.filter(r=>r.date===d);
+      tot+=dRows.length;
+      ful+=dRows.filter(r=>r.ket==='FULFILLED').length;
+      dRows.forEach(r=>{
+         const a=(r.area||'').trim()||'All Areas';
+         if(!by_area[a])by_area[a]={t:0,ok:0};
+         by_area[a].t+=1;
+         if(r.ket==='FULFILLED')by_area[a].ok+=1;
+      });
     } else {
-      tot+=dd.tot||0;ful+=dd.ful||0;
-      Object.entries(dd.by_area||{}).forEach(([a,v])=>{if(!by_area[a])by_area[a]={t:0,ok:0};by_area[a].t+=v.t;by_area[a].ok+=v.ok;});
+       if(ds && ds.del_so !== undefined){
+         if (company === 'MKU') { tot += ds.mku_del_so||0; ful += ds.mku_full_so||0; }
+         else if (company === 'MKS') { tot += ds.mks_del_so||0; ful += ds.mks_full_so||0; }
+         else { tot += ds.del_so||0; ful += ds.full_so||0; }
+       } else {
+         if(company==='ALL'||company==='MKU'){tot+=(dd.mku_tot||0);ful+=(dd.mku_ok||0);}
+         if(company==='ALL'||company==='MKS'){tot+=(dd.mks_tot||0);ful+=(dd.mks_ok||0);}
+       }
+       Object.entries(dd.by_area||{}).forEach(([a,v])=>{if(!by_area[a])by_area[a]={t:0,ok:0};by_area[a].t+=v.t;by_area[a].ok+=v.ok;});
     }
   });
   return{tot,ful,unf:tot-ful,by_area};
@@ -282,12 +311,30 @@ function renderKPIs(){
   const dailyLbl=activeDate==='ALL'?'Latest day · '+fmtD(RAW.latest):fmtD(activeDate);
   // MKU/MKS rev from SO (company-aware)
   let mkuRev=0,mksRev=0;
+  let lostRev = 0; // Calculate Lost Revenue
+  
   if(activeDate===RAW.latest||activeDate==='ALL'){
     const divMapK={};RAW.so.forEach(r=>{divMapK[r.sales]=r.division;});
     Object.entries(agg.rep_rev).forEach(([k,v])=>{if(divMapK[k]==='MKU Bali')mkuRev+=v;else if(divMapK[k]==='MKS Bali')mksRev+=v;});
+    // Calculate Lost Revenue from latest SO data
+    RAW.so.forEach(r=>{
+      if((company==='ALL') || (company==='MKU' && r.division==='MKU Bali') || (company==='MKS' && r.division==='MKS Bali')){
+        const sop = r.so_pcs||0; const fjp = r.fj_pcs||0;
+        if(fjp>0 && sop>fjp){
+           lostRev += (r.revenue/fjp)*(sop-fjp);
+        }
+      }
+    });
   } else {
     const s=getSummary(activeDate);mkuRev=s.mku_rev||0;mksRev=s.mks_rev||0;
+    lostRev = company==='MKU'?s.mku_lost||0:company==='MKS'?s.mks_lost||0:s.lost_rev||0;
   }
+  
+  const delPct = delStats.tot>0?Math.round((delStats.ful/delStats.tot)*100):0;
+  const delColor = delPct<95 ? 'c-mku' : 'c-grn';
+  const delTxtCol = delPct<95 ? 'mku' : 'grn';
+  const delIcon = delPct<95 ? '⚠️' : '🚚';
+
   document.getElementById('kpi-strip').innerHTML=`
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
 <div class="kpi-card c-mks"><div class="kpi-icon mks">📊</div><div class="kpi-label">Month Achievement</div><div class="kpi-value mks">${fmtRp(totalRev)}</div>${prevD&&prevPencRev>0?growthArr(totalRev,prevPencRev):''}<div class="kpi-sub">Cumulative · ${dateLabel}</div></div>
@@ -295,8 +342,9 @@ function renderKPIs(){
 <div class="kpi-card c-mku"><div class="kpi-icon mku">🏢</div><div class="kpi-label">MKU Today</div><div class="kpi-value mku">${fmtRp(dailyMku)}</div>${prevD?growthArr(dailyMku,_dailyPrev.mku_rev||0):''}<div class="kpi-sub">MKU Bali</div></div>
 <div class="kpi-card c-mks"><div class="kpi-icon mks">🏢</div><div class="kpi-label">MKS Today</div><div class="kpi-value mks">${fmtRp(dailyMks)}</div>${prevD?growthArr(dailyMks,_dailyPrev.mks_rev||0):''}<div class="kpi-sub">MKS Bali</div></div>
 </div>
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
-<div class="kpi-card c-grn"><div class="kpi-icon grn">🚚</div><div class="kpi-label">Fulfilment</div><div class="kpi-value grn">${delStats.tot>0?pct(delStats.ful,delStats.tot):'-'}%</div><div class="kpi-sub">${delStats.ful} of ${delStats.tot}</div></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
+<div class="kpi-card c-mku"><div class="kpi-icon mku">📉</div><div class="kpi-label">Lost Revenue</div><div class="kpi-value mku">${fmtRp(lostRev)}</div><div class="kpi-sub">Fulfillment gap</div></div>
+<div class="kpi-card ${delColor}"><div class="kpi-icon ${delTxtCol}">${delIcon}</div><div class="kpi-label">Fulfilment Success</div><div class="kpi-value ${delTxtCol}">${delPct}%</div><div class="kpi-sub">${delStats.ful} of ${delStats.tot} orders</div></div>
 <div class="kpi-card ${outCount+critCount>0?'c-mku':'c-grn'}"><div class="kpi-icon ${outCount+critCount>0?'mku':'grn'}">${outCount+critCount>0?'🔴':'✅'}</div><div class="kpi-label">Stock Alerts</div><div class="kpi-value ${outCount+critCount>0?'mku':''}">${outCount+critCount}</div><div class="kpi-sub">${outCount} out · ${critCount} low</div></div>
 <div class="kpi-card c-gray"><div class="kpi-icon gray">📦</div><div class="kpi-label">Active SKUs</div><div class="kpi-value">${stkSum?(stkSum.mku_total+stkSum.mks_total):stk.length}</div><div class="kpi-sub">Latest snapshot</div></div>
 </div>`
@@ -618,8 +666,24 @@ function renderStock(f){
   const stkSum=getStkSummary();
   const isFullDay=isFull(activeDate);
   const dl=activeDate==='ALL'?'Latest: '+fmtD(RAW.latest):fmtD(activeDate);
+  
+  const prodLostRev = {};
+  if (activeDate === RAW.latest || activeDate === 'ALL') {
+    RAW.so.forEach(r => {
+      const sop = r.so_pcs || 0; const fjp = r.fj_pcs || 0;
+      if (fjp > 0 && sop > fjp) {
+        prodLostRev[r.product] = (prodLostRev[r.product] || 0) + ((r.revenue / fjp) * (sop - fjp));
+      }
+    });
+  }
+  stk.forEach(s => {
+    s.lostRev = prodLostRev[s.code||s.c] || 0;
+    const sld = s.saldo||s.s||0;
+    const a3 = s.avg3||s.a||0;
+    if (sld > 10 && a3 < 1) s.st = 'dead';
+  });
 
-  let totalSKU=stk.length,outCnt=0,critCnt=0,lowCnt=0;
+  let totalSKU=stk.length,outCnt=0,critCnt=0,lowCnt=0,deadCnt=0;
   if(stkSum&&!isFullDay){
     totalSKU=stkSum.mku_total+stkSum.mks_total;
     outCnt=stkSum.mku_out+stkSum.mks_out;
@@ -629,6 +693,7 @@ function renderStock(f){
     outCnt=stk.filter(s=>s.st==='out').length;
     critCnt=stk.filter(s=>s.st==='critical').length;
     lowCnt=stk.filter(s=>s.st==='low').length;
+    deadCnt=stk.filter(s=>s.st==='dead').length;
     totalSKU=stk.length;
   }
 
@@ -636,10 +701,10 @@ function renderStock(f){
     <div class="kpi-card c-gray"><div class="kpi-icon gray">📦</div><div class="kpi-label">Active SKUs</div><div class="kpi-value">${totalSKU}</div><div class="kpi-sub">${dl}</div></div>
     <div class="kpi-card c-mku"><div class="kpi-icon mku">🔴</div><div class="kpi-label">Out of Stock</div><div class="kpi-value mku">${outCnt}</div><div class="kpi-sub">Zero inventory</div></div>
     <div class="kpi-card c-org"><div class="kpi-icon org">⚠️</div><div class="kpi-label">Critical &lt;3 days</div><div class="kpi-value org">${critCnt}</div><div class="kpi-sub">Urgent reorder</div></div>
-    <div class="kpi-card c-org"><div class="kpi-icon org">🟡</div><div class="kpi-label">Low 3–7 days</div><div class="kpi-value org">${lowCnt}</div><div class="kpi-sub">Plan reorder</div></div>`;
+    <div class="kpi-card c-gray"><div class="kpi-icon gray">💀</div><div class="kpi-label">Dead Stock</div><div class="kpi-value gray">${deadCnt}</div><div class="kpi-sub">High stock, low sales</div></div>`;
 
-  const okCnt=totalSKU-outCnt-critCnt-lowCnt;
-  document.getElementById('stk-pills').innerHTML=[{f:'all',l:'All'},{f:'out',l:'🔴 Out ('+outCnt+')'},{f:'critical',l:'Critical ('+critCnt+')'},{f:'low',l:'Low ('+lowCnt+')'},{f:'ok',l:'OK ('+okCnt+')'}].map(({f:fl,l})=>`<button class="pill ${stockFilter===fl?'act':''}" onclick="renderStock('${fl}')">${l}</button>`).join('');
+  const okCnt=totalSKU-outCnt-critCnt-lowCnt-deadCnt;
+  document.getElementById('stk-pills').innerHTML=[{f:'all',l:'All'},{f:'out',l:'🔴 Out ('+outCnt+')'},{f:'critical',l:'Critical ('+critCnt+')'},{f:'low',l:'Low ('+lowCnt+')'},{f:'dead',l:'💀 Dead ('+deadCnt+')'},{f:'ok',l:'OK ('+okCnt+')'}].map(({f:fl,l})=>`<button class="pill ${stockFilter===fl?'act':''}" onclick="renderStock('${fl}')">${l}</button>`).join('');
 
   if(!isFullDay&&stk.length===0&&stockFilter==='ok'){
     document.getElementById('sg').innerHTML=`<p style="color:var(--txt3);padding:20px;font-size:.75rem;grid-column:1/-1">✅ All items OK for this day — no alerts recorded.</p>`;
@@ -652,8 +717,18 @@ function renderStock(f){
 
   let filtered=stk;
   if(stockFilter!=='all')filtered=stk.filter(s=>s.st===stockFilter);
-  filtered.sort((a,b)=>({'out':0,'critical':1,'low':2,'ok':3}[a.st]-{'out':0,'critical':1,'low':2,'ok':3}[b.st]));
-  document.getElementById('sg').innerHTML=filtered.map(s=>`<div class="si ${s.st}"><div class="si-code">${s.code||s.c||''}${company==='ALL'?' · <b>'+s.co+'</b>':''}</div><div class="si-name">${s.name||s.n||''}</div><div class="si-bottom"><div class="si-qty ${s.st}">${(s.saldo||s.s||0)<=0?'0':fmtQ(s.saldo||s.s||0)}<span style="font-size:.6rem;font-weight:400;margin-left:2px">${s.unit||s.u||''}</span></div><div class="si-days ${s.st}">${(s.saldo||s.s||0)<=0?'OUT':(s.buf||s.bf||0)>0?fmtQ(s.buf||s.bf||0)+'d':'—'}</div></div></div>`).join('')||'<p style="color:var(--txt3);padding:20px;font-size:.75rem">No items.</p>';
+  // sort by lost revenue first, then state
+  filtered.sort((a,b)=>{
+    if(b.lostRev !== a.lostRev) return b.lostRev - a.lostRev;
+    const m = {'out':0,'critical':1,'low':2,'ok':3,'dead':4};
+    return m[a.st]-m[b.st];
+  });
+  
+  document.getElementById('sg').innerHTML=filtered.map(s=>{
+    let stl = s.st==='dead' ? 'background:var(--bg);border:1px solid #94a3b8;' : '';
+    let lrHtml = s.lostRev > 0 ? `<div style="font-size:.65rem;color:var(--mku);margin-top:4px;font-weight:700">Lost: ${fmtRp(s.lostRev)}</div>` : '';
+    return `<div class="si ${s.st}" style="${stl}"><div class="si-code">${s.code||s.c||''}${company==='ALL'?' · <b>'+s.co+'</b>':''}</div><div class="si-name">${s.name||s.n||''}</div>${lrHtml}<div class="si-bottom"><div class="si-qty ${s.st}">${(s.saldo||s.s||0)<=0?'0':fmtQ(s.saldo||s.s||0)}<span style="font-size:.6rem;font-weight:400;margin-left:2px">${s.unit||s.u||''}</span></div><div class="si-days ${s.st}">${s.st==='dead'?'DEAD':(s.saldo||s.s||0)<=0?'OUT':(s.buf||s.bf||0)>0?fmtQ(s.buf||s.bf||0)+'d':'—'}</div></div></div>`;
+  }).join('')||'<p style="color:var(--txt3);padding:20px;font-size:.75rem">No items.</p>';
 }
 
 function renderAlerts(){
@@ -665,11 +740,12 @@ function renderAlerts(){
   const outI=stk.filter(s=>s.st==='out').sort((a,b)=>b.a-a.a);
   const critI=stk.filter(s=>s.st==='critical').sort((a,b)=>a.bf-b.bf);
   const lowI=stk.filter(s=>s.st==='low').sort((a,b)=>a.bf-b.bf);
+  const deadI=stk.filter(s=>((s.saldo||s.s||0)>10 && (s.avg3||s.a||0)<1)).sort((a,b)=>(b.saldo||b.s||0)-(a.saldo||a.s||0));
 
-  let outCnt=outI.length,critCnt=critI.length+lowI.length;
+  let outCnt=outI.length,critCnt=critI.length+lowI.length,deadCnt=deadI.length;
   if(stkSum&&!isFullDay){outCnt=stkSum.mku_out+stkSum.mks_out;critCnt=stkSum.mku_crit+stkSum.mks_crit+stkSum.mku_low+stkSum.mks_low;}
 
-  const _totalAlerts=outCnt+critCnt+stats.unf;
+  const _totalAlerts=outCnt+critCnt+stats.unf+deadCnt;
   document.getElementById('alerts-summary').innerHTML=`
     <div style="background:${outCnt>0?'var(--mku-l)':'var(--grn-l)'};border:1px solid ${outCnt>0?'var(--mku)':'var(--grn)'};border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px">
       <div style="font-size:2rem">${outCnt>0?'🔴':'✅'}</div>
@@ -694,19 +770,33 @@ function renderAlerts(){
         <div style="font-size:1.8rem;font-weight:800;line-height:1.1;color:${stats.unf>0?'var(--org)':'var(--grn)'}">${stats.unf}</div>
         <div style="font-size:.65rem;color:var(--txt3);margin-top:2px">${stats.unf>0?'Action: contact customers today':'All orders delivered'}</div>
       </div>
+    </div>
+    <div style="background:${deadCnt>0?'var(--bg)':'var(--grn-l)'};border:1px solid ${deadCnt>0?'#94a3b8':'var(--grn)'};border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px">
+      <div style="font-size:2rem">${deadCnt>0?'💀':'✅'}</div>
+      <div style="flex:1">
+        <div style="font-size:.6rem;font-weight:700;color:${deadCnt>0?'#475569':'var(--grn)'};text-transform:uppercase;letter-spacing:.05em">Dead Stock</div>
+        <div style="font-size:1.8rem;font-weight:800;line-height:1.1;color:${deadCnt>0?'#475569':'var(--grn)'}">${deadCnt}</div>
+        <div style="font-size:.65rem;color:var(--txt3);margin-top:2px">${deadCnt>0?'Action: Push or liquidate':'No dead inventory'}</div>
+      </div>
     </div>`;
 
   // Get unfulfilled delivery issues — read from correct nested path
   const unfI=[];
+  const allDel = getDel();
   (activeDate==='ALL'?RAW.dates:[activeDate]).forEach(d=>{
-    const _mk=d.slice(0,7);const _mo=RAW.months[_mk]||{};
-    const _dbd=_mo.delivery_by_date||RAW.delivery_by_date||{};
-    const dd=_dbd[d];if(!dd)return;
-    if(isLatest(d)){[...(dd.mku_full||[]),...(dd.mks_full||[])].filter(r=>r.ket==='UNFULFILLED').forEach(r=>unfI.push({...r,date:d}));}
-    else{(dd.issues||[]).forEach(r=>unfI.push({...r,date:d}));}
+    const dRows = allDel.filter(r=>r.date===d);
+    dRows.filter(r=>r.ket==='UNFULFILLED').forEach(r=>unfI.push({...r,date:d}));
   });
 
   const secs=[
+    {id:'a-dead',ic:'💀',tt:'Dead Stock — Liquidation Candidates',cnt:deadI.length,cc:deadI.length?'gray':'grn',items:deadI.length?deadI.map(s=>`
+      <div style="display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bg);gap:10px">
+        <div style="width:8px;height:8px;border-radius:50%;background:#94a3b8;flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.7rem;font-weight:600">${s.name||s.n} <span style="color:var(--txt3);font-weight:400;margin-left:4px">${s.code||s.c}</span></div>
+          <div style="font-size:.65rem;color:var(--txt2);margin-top:2px">Stock: ${s.saldo||s.s} ${s.unit||s.u} | 3-Mo Avg: ${s.avg3||s.a}</div>
+        </div>
+      </div>`):[]},
     {id:'a-out',ic:'🔴',tt:'Out of Stock — Reorder Immediately',cnt:outI.length,cc:outI.length?'red':'grn',items:outI.length?outI.map(s=>`
       <div style="display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bg);gap:10px">
         <div style="width:8px;height:8px;border-radius:50%;background:var(--mku);flex-shrink:0"></div>
@@ -929,6 +1019,39 @@ function renderBusiness(){
       const tot=rows.reduce((s,[,v])=>s+v.total,0);
       el2.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci pur">🏷️</div>Customer Segment Breakdown</div></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Segment</th><th class="num">Customers</th><th class="num">Total Revenue</th><th class="num">% of Total</th></tr></thead><tbody>${rows.map(([seg,v])=>`<tr><td style="font-weight:600">${seg}</td><td class="num">${v.cust_count}</td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(v.total)}</td><td class="num">${tot>0?Math.round(v.total/tot*100):0}%</td></tr>`).join('')}</tbody></table></div></div>`;
     }
+    
+    // PARETO ANALYSIS
+    const elP=document.getElementById('biz-pareto');
+    if(elP&&_CUST){
+      const allCusts=Object.values(CUSTOMERS.by_rep||{}).flatMap(r=>Object.values(r.customers||{}));
+      allCusts.sort((a,b)=>b.total-a.total);
+      const grandTotal = allCusts.reduce((sum,c)=>sum+c.total,0);
+      const top20Count = Math.max(1, Math.round(allCusts.length * 0.20));
+      const top20Custs = allCusts.slice(0, top20Count);
+      const top20Rev = top20Custs.reduce((sum,c)=>sum+c.total,0);
+      const top20Pct = grandTotal > 0 ? Math.round((top20Rev/grandTotal)*100) : 0;
+      
+      elP.innerHTML=`<div class="card"><div class="card-hdr"><div class="card-title"><div class="ci org">👑</div>80/20 Customer Pareto</div><span class="card-sub">Top 20% Customers</span></div>
+      <div style="padding:16px;display:flex;align-items:center;gap:20px;">
+         <div style="flex-shrink:0;text-align:center;padding:20px;background:var(--bg);border-radius:12px;border:1px solid var(--bdr);">
+            <div style="font-size:3rem;line-height:1">👑</div>
+            <div style="font-size:2rem;font-weight:800;color:var(--mks);margin:8px 0">${top20Pct}%</div>
+            <div style="font-size:.7rem;color:var(--txt2);font-weight:600">of total revenue</div>
+            <div style="font-size:.6rem;color:var(--txt3);margin-top:4px">comes from your top ${top20Count} customers</div>
+         </div>
+         <div style="flex-grow:1;max-height:200px;overflow-y:auto;border:1px solid var(--bdr);border-radius:8px">
+            <table class="tbl" style="margin:0">
+              <thead style="position:sticky;top:0;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.05)"><tr><th>VIP Customer</th><th>Rep</th><th class="num">Revenue</th><th class="num">% of Total</th></tr></thead>
+              <tbody>
+                ${top20Custs.slice(0,25).map(c=>`<tr><td style="font-weight:700;font-size:.7rem">${c.name}</td><td style="font-size:.65rem;color:var(--txt2)">${c.rep}</td><td class="num" style="color:var(--grn);font-weight:700">${fmtRp(c.total)}</td><td class="num">${(c.total/grandTotal*100).toFixed(1)}%</td></tr>`).join('')}
+                ${top20Count > 25 ? `<tr><td colspan="4" style="text-align:center;font-size:.65rem;color:var(--txt3)">+ ${top20Count - 25} more VIPs...</td></tr>` : ''}
+              </tbody>
+            </table>
+         </div>
+      </div>
+      </div>`;
+    }
+
     const el3=document.getElementById('biz-cust');
     if(el3&&_CUST) renderCustomerSearch('');
   });
