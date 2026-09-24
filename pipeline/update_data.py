@@ -598,10 +598,6 @@ def group_files_by_date():
         date_str = extract_date_from_name(f.name)
 
         if date_str:
-            if "stok" in n or "stock" in n:
-                dt = datetime.strptime(date_str, "%Y-%m-%d") + timedelta(days=1)
-                date_str = dt.strftime("%Y-%m-%d")
-            
             if date_str not in date_files:
                 date_files[date_str] = {}
             assign_role(f, n, date_files[date_str])
