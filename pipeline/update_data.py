@@ -5,7 +5,7 @@ Processes ALL unprocessed dates found in uploads/ in one run.
 """
 
 import json, re, sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 try:
@@ -121,17 +121,54 @@ def extract_day_only(name):
 
 def compress_so(so_list):
     rep_rev={};prod_rev={};cust_rev={};mku_rev=0;mks_rev=0
+    lost_rev=0; mku_lost=0; mks_lost=0
+    # Delivery success tracking
+    full_so=0; del_so=0; mku_full_so=0; mku_del_so=0; mks_full_so=0; mks_del_so=0
+    
+    # group by no_so for fulfillment
+    orders = {}
+    
     for r in so_list:
         s=r["sales"];p=r["product"];c=r["customer"]
-        rep_rev[s]=rep_rev.get(s,0)+r["revenue"]
-        prod_rev[p]=prod_rev.get(p,0)+r["revenue"]
+        rev=r.get("revenue",0)
+        so_p=r.get("so_pcs",0); fj_p=r.get("fj_pcs",0)
+        lr = 0
+        if fj_p > 0 and so_p > fj_p:
+            lr = (rev / fj_p) * (so_p - fj_p)
+            
+        no_so = r.get("no_so","")
+        if no_so:
+            if no_so not in orders: orders[no_so] = {"so":0, "fj":0, "div": r["division"]}
+            orders[no_so]["so"] += so_p
+            orders[no_so]["fj"] += fj_p
+            
+        rep_rev[s]=rep_rev.get(s,0)+rev
+        prod_rev[p]=prod_rev.get(p,0)+rev
         if c not in cust_rev: cust_rev[c]={"rev":0,"so":0,"sales":s,"div":r["division"]}
-        cust_rev[c]["rev"]+=r["revenue"];cust_rev[c]["so"]+=1
-        if r["division"]=="MKU Bali": mku_rev+=r["revenue"]
-        else: mks_rev+=r["revenue"]
-    return {"rev":sum(r["revenue"] for r in so_list),"cnt":len(so_list),
+        cust_rev[c]["rev"]+=rev;cust_rev[c]["so"]+=1
+        if r["division"]=="MKU Bali": 
+            mku_rev+=rev; mku_lost+=lr
+        else: 
+            mks_rev+=rev; mks_lost+=lr
+        lost_rev+=lr
+        
+    for k, v in orders.items():
+        del_so += 1
+        if v["fj"] >= v["so"]: full_so += 1
+        if v["div"] == "MKU Bali":
+            mku_del_so += 1
+            if v["fj"] >= v["so"]: mku_full_so += 1
+        else:
+            mks_del_so += 1
+            if v["fj"] >= v["so"]: mks_full_so += 1
+
+    return {"rev":sum(r.get("revenue",0) for r in so_list),"cnt":len(so_list),
         "cust_cnt":len(set(r["customer"] for r in so_list)),
         "mku_rev":mku_rev,"mks_rev":mks_rev,"rep_rev":rep_rev,
+        "lost_rev":lost_rev, "mku_lost":mku_lost, "mks_lost":mks_lost,
+        "del_so":del_so, "full_so":full_so, 
+        "mku_del_so":mku_del_so, "mku_full_so":mku_full_so,
+        "mks_del_so":mks_del_so, "mks_full_so":mks_full_so,
         "prod_rev":dict(sorted(prod_rev.items(),key=lambda x:-x[1])[:10]),
         "cust":dict(sorted(cust_rev.items(),key=lambda x:-x[1]["rev"])[:20])}
 
@@ -561,6 +598,10 @@ def group_files_by_date():
         date_str = extract_date_from_name(f.name)
 
         if date_str:
+            if "stok" in n or "stock" in n:
+                dt = datetime.strptime(date_str, "%Y-%m-%d") + timedelta(days=1)
+                date_str = dt.strftime("%Y-%m-%d")
+            
             if date_str not in date_files:
                 date_files[date_str] = {}
             assign_role(f, n, date_files[date_str])
