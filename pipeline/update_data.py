@@ -270,9 +270,20 @@ def parse_so(path, date_str):
             "type":gc("type"),
             "status":gc("status"),
             "notes":gc("notes")})
-    if len(rows) < 10:
-        raise ValueError(f"SO file has only {len(rows)} rows — wrong sheet?")
-    return rows
+
+    # Deduplicate rows: identical line items in the same SO (e.g. from duplicate spreadsheet rows/exports)
+    seen = set()
+    deduped = []
+    for r in rows:
+        key = (r["date"], r["no_so"], r["product"], r["so_pcs"], r["unit"], r["revenue"], r["customer"], r["sales"])
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(r)
+
+    if len(deduped) < 10:
+        raise ValueError(f"SO file has only {len(deduped)} rows — wrong sheet?")
+    return deduped
 
 def parse_stock(path):
     xl = pd.ExcelFile(path)
