@@ -829,8 +829,12 @@ def main():
             fp = files.get(role)
             if fp and fp.exists():
                 try:
-                    fp.rename(ARCHIVE_DIR / fp.name)
-                    print(f"  Archived {fp.name}")
+                    clean_name = re.sub(r'\s+', ' ', fp.name)
+                    target_path = ARCHIVE_DIR / clean_name
+                    if target_path.exists() and target_path.resolve() != fp.resolve():
+                        target_path.unlink()
+                    fp.rename(target_path)
+                    print(f"  Archived {clean_name}")
                 except OSError as e:
                     print(f"  WARNING: could not archive {fp.name}: {e}")
 
