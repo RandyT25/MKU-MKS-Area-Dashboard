@@ -24,6 +24,35 @@ const growthArr=(cur,prev)=>{if(!prev||prev===0)return'';const g=((cur-prev)/pre
 const isFull=d=>d==='ALL'?true:isLatest(d);
 const COPTS={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8a93b0',font:{family:'Plus Jakarta Sans',size:11},boxWidth:10,padding:14}}},scales:{x:{ticks:{color:'#8a93b0',font:{family:'Plus Jakarta Sans',size:10}},grid:{color:'#f0f2f7'},border:{display:false}},y:{ticks:{color:'#8a93b0',font:{family:'Plus Jakarta Sans',size:10}},grid:{color:'#f0f2f7'},border:{display:false}}}};
 
+const PROD_NAMES={};
+function initProdNames(){
+  if(typeof RAW==='undefined') return;
+  Object.values(RAW.months||{}).forEach(m=>{
+    Object.values(m.stock_by_date||{}).forEach(stk=>{
+      (stk.MKU_full||[]).concat(stk.MKS_full||[]).concat(stk.items||[]).forEach(it=>{
+        if(it.code&&it.name) PROD_NAMES[it.code]=it.name;
+      });
+    });
+  });
+  if(RAW.stock_by_date){
+    Object.values(RAW.stock_by_date).forEach(stk=>{
+      (stk.MKU_full||[]).concat(stk.MKS_full||[]).concat(stk.items||[]).forEach(it=>{
+        if(it.code&&it.name) PROD_NAMES[it.code]=it.name;
+      });
+    });
+  }
+  if(RAW.so){
+    RAW.so.forEach(r=>{
+      if(r.product&&r.product_name) PROD_NAMES[r.product]=r.product_name;
+    });
+  }
+}
+function getProdName(p){
+  if(!p) return '—';
+  if(Object.keys(PROD_NAMES).length===0) initProdNames();
+  return PROD_NAMES[p]||p;
+}
+
 function buildDT(){
   const lbl=activeDate==='ALL'?'📅 All Days':'📅 '+fmtD(activeDate);
   const mlbl=activeDate==='ALL'?'📅 All':'📅 '+fmtD(activeDate);
@@ -95,7 +124,8 @@ function getAggSummary(){
     RAW.so.filter(r=>r.division===divT).forEach(r=>{
       agg.rev+=r.revenue||0;agg.cnt+=1;
       agg.rep_rev[r.sales]=(agg.rep_rev[r.sales]||0)+r.revenue;
-      agg.prod_rev[r.product]=(agg.prod_rev[r.product]||0)+r.revenue;
+      const pn=getProdName(r.product);
+      agg.prod_rev[pn]=(agg.prod_rev[pn]||0)+r.revenue;
       if(!agg.cust[r.customer])agg.cust[r.customer]={rev:0,so:0,sales:r.sales,div:r.division};
       agg.cust[r.customer].rev+=r.revenue;agg.cust[r.customer].so+=1;custSet.add(r.customer);
     });
@@ -103,7 +133,7 @@ function getAggSummary(){
       const s=getSummary(d);
       agg.rev+=company==='MKU'?(s.mku_rev||0):(s.mks_rev||0);
       Object.entries(s.rep_rev||{}).forEach(([k,v])=>{if(okDiv(k))agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
-      Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
+      Object.entries(s.prod_rev||{}).forEach(([k,v])=>{const pn=getProdName(k);agg.prod_rev[pn]=(agg.prod_rev[pn]||0)+v;});
       Object.entries(s.cust||{}).forEach(([k,v])=>{
         if(!okDiv(v.sales))return;
         if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
@@ -116,7 +146,7 @@ function getAggSummary(){
       if(divT){
         agg.rev+=company==='MKU'?(s.mku_rev||0):(s.mks_rev||0);agg.cnt+=s.cnt||0;
         Object.entries(s.rep_rev||{}).forEach(([k,v])=>{if(okDiv(k))agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
-        Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
+        Object.entries(s.prod_rev||{}).forEach(([k,v])=>{const pn=getProdName(k);agg.prod_rev[pn]=(agg.prod_rev[pn]||0)+v;});
         Object.entries(s.cust||{}).forEach(([k,v])=>{
           if(!okDiv(v.sales))return;
           if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
@@ -125,7 +155,7 @@ function getAggSummary(){
       } else {
         agg.rev+=s.rev||0;agg.cnt+=s.cnt||0;
         Object.entries(s.rep_rev||{}).forEach(([k,v])=>{agg.rep_rev[k]=(agg.rep_rev[k]||0)+v;});
-        Object.entries(s.prod_rev||{}).forEach(([k,v])=>{agg.prod_rev[k]=(agg.prod_rev[k]||0)+v;});
+        Object.entries(s.prod_rev||{}).forEach(([k,v])=>{const pn=getProdName(k);agg.prod_rev[pn]=(agg.prod_rev[pn]||0)+v;});
         Object.entries(s.cust||{}).forEach(([k,v])=>{
           if(!agg.cust[k])agg.cust[k]={rev:0,so:0,sales:v.sales,div:v.div};
           agg.cust[k].rev+=v.rev;agg.cust[k].so+=v.so;custSet.add(k);
@@ -515,7 +545,7 @@ function renderSO(){
   document.getElementById('so-count-lbl').textContent=agg.cnt+' orders';
   if(isFullDay){
     const so=getSO();
-    document.getElementById('tbl-so').innerHTML=`<thead><tr><th>Date</th><th>No SO</th><th>Co</th><th>Customer</th><th>Sales</th><th>Product</th><th class="num">Qty</th><th class="num">Revenue</th></tr></thead><tbody>${so.map(r=>`<tr><td style="font-size:.63rem;color:var(--txt3);white-space:nowrap">${fmtD(r.date)}</td><td style="font-size:.62rem;color:var(--txt3)">${r.no_so}</td><td><span class="badge ${r.division==='MKU Bali'?'b-mku':'b-mks'}">${r.division==='MKU Bali'?'MKU':'MKS'}</span></td><td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">${r.customer}</td><td style="color:var(--txt2);font-size:.68rem">${r.sales}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.68rem">${r.product}</td><td class="num">${fmtQ(r.so_pcs)} <span style="color:var(--txt3)">${r.unit}</span></td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(r.revenue)}</td></tr>`).join('')}</tbody>`;
+    document.getElementById('tbl-so').innerHTML=`<thead><tr><th>Date</th><th>No SO</th><th>Co</th><th>Customer</th><th>Sales</th><th>Product</th><th class="num">Qty</th><th class="num">Revenue</th></tr></thead><tbody>${so.map(r=>`<tr><td style="font-size:.63rem;color:var(--txt3);white-space:nowrap">${fmtD(r.date)}</td><td style="font-size:.62rem;color:var(--txt3)">${r.no_so}</td><td><span class="badge ${r.division==='MKU Bali'?'b-mku':'b-mks'}">${r.division==='MKU Bali'?'MKU':'MKS'}</span></td><td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">${r.customer}</td><td style="color:var(--txt2);font-size:.68rem">${r.sales}</td><td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.68rem" title="${getProdName(r.product)}">${getProdName(r.product)}</td><td class="num">${fmtQ(r.so_pcs)} <span style="color:var(--txt3)">${r.unit}</span></td><td class="num" style="font-weight:700;color:var(--mks)">${fmtRp(r.revenue)}</td></tr>`).join('')}</tbody>`;
   } else {
     document.getElementById('tbl-so').innerHTML=`<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--txt3)">📦 Detailed SO rows available for latest day only.<br><span style="font-size:.68rem">Select <strong>${fmtD(RAW.latest)} ★</strong> to see full order list.</span></td></tr>`;
   }
@@ -564,11 +594,11 @@ function renderDel(){
 
   const bsI=del.filter(r=>r.ket==='UNFULFILLED').sort((a,b)=>(b.diff||0)-(a.diff||0));
   document.getElementById('del-bs-lbl').textContent=bsI.length+' issues';
-  document.getElementById('tbl-bs').innerHTML=`<thead><tr><th>Customer</th><th>Sales</th><th>Product</th><th class="num">Qty</th><th>Status</th><th>Area</th><th>Co</th></tr></thead><tbody>${bsI.length?bsI.map(r=>`<tr><td style="font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.customer||'—'}</td><td style="font-size:.68rem;color:var(--txt2)">${r.sales||'—'}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.68rem">${r.product||'—'}</td><td class="num">${fmtQ(r.qty_bs||0)} ${r.unit||''}</td><td><span class="badge b-red">UNFULFILLED</span></td><td style="font-size:.68rem">${r.area||'—'}</td><td><span class="badge ${r.co==='MKU'?'b-mku':'b-mks'}">${r.co||'—'}</span></td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:12px">✅ No issues</td></tr>'}</tbody>`;
+  document.getElementById('tbl-bs').innerHTML=`<thead><tr><th>Customer</th><th>Sales</th><th>Product</th><th class="num">Qty</th><th>Status</th><th>Area</th><th>Co</th></tr></thead><tbody>${bsI.length?bsI.map(r=>`<tr><td style="font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.customer||'—'}</td><td style="font-size:.68rem;color:var(--txt2)">${r.sales||'—'}</td><td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.68rem" title="${getProdName(r.product)}">${getProdName(r.product)}</td><td class="num">${fmtQ(r.qty_bs||0)} ${r.unit||''}</td><td><span class="badge b-red">UNFULFILLED</span></td><td style="font-size:.68rem">${r.area||'—'}</td><td><span class="badge ${r.co==='MKU'?'b-mku':'b-mks'}">${r.co||'—'}</span></td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:12px">✅ No issues</td></tr>'}</tbody>`;
 
   document.getElementById('del-count-lbl').textContent=stats.tot+' lines';
   if(isFullDay){
-    document.getElementById('tbl-del').innerHTML=`<thead><tr><th>Co</th><th>Area</th><th>Customer</th><th>Sales</th><th>Product</th><th class="num">Qty</th><th>Unit</th><th>Status</th></tr></thead><tbody>${del.map(r=>`<tr><td><span class="badge ${r.co==='MKU'?'b-mku':'b-mks'}">${r.co}</span></td><td style="font-size:.68rem;color:var(--txt2);white-space:nowrap">${r.area||''}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">${r.customer||''}</td><td style="font-size:.68rem;color:var(--txt2)">${r.sales||''}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.68rem">${r.product||''}</td><td class="num">${fmtQ(r.qty_bs||0)}</td><td style="font-size:.68rem">${r.unit||''}</td><td><span class="badge ${r.ket==='FULFILLED'?'b-grn':'b-red'}">${r.ket==='FULFILLED'?'✓':'✗'}</span></td></tr>`).join('')}</tbody>`;
+    document.getElementById('tbl-del').innerHTML=`<thead><tr><th>Co</th><th>Area</th><th>Customer</th><th>Sales</th><th>Product</th><th class="num">Qty</th><th>Unit</th><th>Status</th></tr></thead><tbody>${del.map(r=>`<tr><td><span class="badge ${r.co==='MKU'?'b-mku':'b-mks'}">${r.co}</span></td><td style="font-size:.68rem;color:var(--txt2);white-space:nowrap">${r.area||''}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">${r.customer||''}</td><td style="font-size:.68rem;color:var(--txt2)">${r.sales||''}</td><td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.68rem" title="${getProdName(r.product)}">${getProdName(r.product)}</td><td class="num">${fmtQ(r.qty_bs||0)}</td><td style="font-size:.68rem">${r.unit||''}</td><td><span class="badge ${r.ket==='FULFILLED'?'b-grn':'b-red'}">${r.ket==='FULFILLED'?'✓':'✗'}</span></td></tr>`).join('')}</tbody>`;
   } else {
     document.getElementById('tbl-del').innerHTML=`<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--txt3)">🚚 Full delivery list available for latest day only.<br><span style="font-size:.68rem">Select <strong>${fmtD(RAW.latest)} ★</strong> to see all lines.</span></td></tr>`;
   }
@@ -672,12 +702,15 @@ function renderStock(f){
     RAW.so.forEach(r => {
       const sop = r.so_pcs || 0; const fjp = r.fj_pcs || 0;
       if (fjp > 0 && sop > fjp) {
-        prodLostRev[r.product] = (prodLostRev[r.product] || 0) + ((r.revenue / fjp) * (sop - fjp));
+        const lr = (r.revenue / fjp) * (sop - fjp);
+        prodLostRev[r.product] = (prodLostRev[r.product] || 0) + lr;
+        const pn = getProdName(r.product);
+        if (pn !== r.product) prodLostRev[pn] = (prodLostRev[pn] || 0) + lr;
       }
     });
   }
   stk.forEach(s => {
-    s.lostRev = prodLostRev[s.code||s.c] || 0;
+    s.lostRev = prodLostRev[s.code||s.c] || prodLostRev[s.name||s.n] || 0;
     const sld = s.saldo||s.s||0;
     const a3 = s.avg3||s.a||0;
     if (sld > 10 && a3 < 1) s.st = 'dead';
@@ -829,7 +862,7 @@ function renderAlerts(){
         <div style="width:8px;height:8px;border-radius:50%;background:var(--mku);flex-shrink:0"></div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:600;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.customer||'—'}</div>
-          <div style="font-size:.62rem;color:var(--txt3)">${r.product||'—'} · <span style="color:var(--mku);font-weight:700">not sent</span> · ${r.sales||'—'}</div>
+          <div style="font-size:.62rem;color:var(--txt3)">${getProdName(r.product)} · <span style="color:var(--mku);font-weight:700">not sent</span> · ${r.sales||'—'}</div>
         </div>
         <span style="font-size:.6rem;font-weight:700;background:${(r.co||'')=='MKU'?'var(--mku-l)':'var(--mks-l)'};color:${(r.co||'')=='MKU'?'var(--mku)':'var(--mks)'};padding:2px 7px;border-radius:4px;flex-shrink:0">${r.co||'—'}</span>
       </div>`):['<div style="padding:12px;color:var(--grn);font-size:.74rem;text-align:center">✅ All orders delivered</div>']},
@@ -856,13 +889,13 @@ function dlExcel(){
   const soRows=getSO();
   addSheet('Sales Orders',
     ['Date','No SO','Division','Customer','Sales Rep','Product','SO Qty','Unit','FJ Qty','Revenue (Rp)','Type','Status'],
-    soRows.map(r=>[r.date,r.no_so,r.division,r.customer,r.sales,r.product,r.so_pcs,r.unit,r.fj_pcs,Math.round(r.revenue),r.type,r.status])
+    soRows.map(r=>[r.date,r.no_so,r.division,r.customer,r.sales,getProdName(r.product),r.so_pcs,r.unit,r.fj_pcs,Math.round(r.revenue),r.type,r.status])
   );
   // Sheet 2: Delivery
   const delRows=getDel();
   addSheet('Delivery',
     ['Date','Division','Area','Customer','Sales Rep','Product','Qty','Unit','Status'],
-    delRows.map(r=>[r.date||RAW.latest,r.co||'',r.area||'',r.customer||'',r.sales||'',r.product||'',r.qty_bs||0,r.unit||'',r.ket||''])
+    delRows.map(r=>[r.date||RAW.latest,r.co||'',r.area||'',r.customer||'',r.sales||'',getProdName(r.product),r.qty_bs||0,r.unit||'',r.ket||''])
   );
   // Sheet 3: Stock
   const stk=getStk();

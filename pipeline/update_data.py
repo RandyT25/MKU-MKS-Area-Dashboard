@@ -255,13 +255,17 @@ def parse_so(path, date_str):
 
         revenue = gv("revenue")
         so_pcs = gv("so_pcs")
+        prod_code = gc("product")
+        prod_name = gc("product_name") or prod_code
         rows.append({"date":date_str,
             "no_so":no_so_val,
             "division":gc("division"),
             "customer":gc("customer"),
             "jt":gc("jt"),
             "sales":norm_sales(gc("sales")),
-            "product":gc("product"),
+            "product":prod_name,
+            "product_code":prod_code,
+            "product_name":prod_name,
             "so_pcs":so_pcs,
             "unit":gc("unit"),
             "fj_pcs":gv("fj_pcs"),
@@ -374,11 +378,13 @@ def parse_delivery(path):
                 "ket":"UNFULFILLED" if ket_raw.upper().startswith("UN") else "FULFILLED"})
         else:
             ket_raw = str(r[12]).strip() if len(r) > 12 and not pd.isna(r[12]) else ""
+            p_code = str(r[6]).strip() if not pd.isna(r[6]) else ""
+            p_name = str(r[7]).strip() if len(r) > 7 and not pd.isna(r[7]) else p_code
             rows.append({"no_so":no_so_s,
                 "area":str(r[3]).strip() if not pd.isna(r[3]) else "",
                 "customer":str(r[4]).strip() if not pd.isna(r[4]) else "",
                 "sales":norm_sales(r[5]),
-                "product":str(r[6]).strip() if not pd.isna(r[6]) else "",
+                "product":p_name or p_code,
                 "unit":str(r[9]).strip() if not pd.isna(r[9]) else "",
                 "qty_bs":fval(r[11]),
                 "ket":"UNFULFILLED" if ket_raw.upper().startswith("UN") else "FULFILLED"})
