@@ -725,13 +725,28 @@ def main():
     if reprocess:
         print(f"\nAlready processed (will re-process latest only): {reprocess}")
     if not new_dates and not dates_to_process:
-        print("Nothing to process."); return
+        if pencapaian and raw.get("latest"):
+            latest = raw["latest"]
+            month_key = latest[:7]
+            print(f"\nNo new daily files found, but DATA_PENCAPAIAN is present: {pencapaian.name}")
+            print(f"Updating targets for latest date: {latest}...")
+            try:
+                targets_entry = parse_targets(pencapaian, latest)
+                if month_key in raw.get("months", {}):
+                    raw["months"][month_key]["targets_by_date"][latest] = targets_entry
+                    t = targets_entry["targets"]
+                    print(f"  FOOD: {t['FOOD']['achievement']:,.0f}/{t['FOOD']['target']:,.0f} | BEV: {t['BEVERAGE']['achievement']:,.0f}/{t['BEVERAGE']['target']:,.0f} | BAKERY: {t['BAKERY']['achievement']:,.0f}/{t['BAKERY']['target']:,.0f} | NES: {t['NESTLE']['achievement']:,.0f}/{t['NESTLE']['target']:,.0f}")
+            except Exception as e:
+                print(f"  ERROR updating targets from pencapaian: {e}")
+                return
+        else:
+            print("Nothing to process."); return
 
     # Process all dates in chronological order
     # All dates get compressed (so_summary only, no full rows) except the LAST one
     all_dates = dates_to_process  # process all found, re-process included
     complete = [d for d in all_dates if all(r in date_files[d] for r in ["so","stk_mku","stk_mks","del_mku","del_mks"])]
-    latest_date = max(complete) if complete else max(all_dates)
+    latest_date = max(complete) if complete else (max(all_dates) if all_dates else raw.get("latest"))
 
     for date_str in sorted(all_dates):
         dt = datetime.strptime(date_str, "%Y-%m-%d")
