@@ -92,6 +92,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
 .b-grn{background:var(--grn-l);color:var(--grn);}.b-org{background:var(--org-l);color:var(--org);}
 .b-pur{background:var(--pur-l);color:var(--pur);}.b-red{background:#fef2f2;color:#dc2626;}
 .b-gray{background:var(--bg);color:var(--txt2);border:1px solid var(--border);}
+.tr-nuris-sanur td{background:rgba(124,58,237,.04)!important;}
+.tr-nuris-seminyak td{background:rgba(217,119,6,.04)!important;}
 .pb{background:var(--border);border-radius:99px;height:6px;overflow:hidden;}
 .pb-fill{height:100%;border-radius:99px;}
 .sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:9px;max-height:580px;overflow-y:auto;}

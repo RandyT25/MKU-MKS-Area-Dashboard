@@ -430,7 +430,7 @@ function renderTarget(){
   charts.area=new Chart(document.getElementById('ch-area'),{type:'bar',data:{
     labels:areas.map(a=>a.area.length>14?a.area.slice(0,13)+'…':a.area),
     datasets:[
-      {label:'Achieved',data:areas.map(a=>a.food_ach+a.bev_ach+(a.bakery_ach||0)),backgroundColor:'#93b4f8',borderRadius:4,stack:'a'},
+      {label:'Achieved',data:areas.map(a=>a.food_ach+a.bev_ach+(a.bakery_ach||0)),backgroundColor:areas.map(a=>a.area.includes('SANUR')&&a.area.includes('NAUGHTY NURIS')?'#a78bfa':a.area.includes('SEMINYAK')&&a.area.includes('NAUGHTY NURIS')?'#f59e0b':'#93b4f8'),borderRadius:4,stack:'a'},
       {label:'Remaining',data:areas.map(a=>Math.max(0,(a.food_target+a.bev_target+(a.bakery_target||0))-(a.food_ach+a.bev_ach+(a.bakery_ach||0)))),backgroundColor:'#e4e8ef',stack:'a'}
     ]},options:{...COPTS,scales:{...COPTS.scales,x:{...COPTS.scales.x,stacked:true},y:{...COPTS.scales.y,stacked:true,ticks:{...COPTS.scales.y.ticks,callback:v=>v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(0)+'M':v}}}}});
 
@@ -453,8 +453,17 @@ function renderTarget(){
       const prevP=_prevAreaMap[a.area];
       const delta=prevP!=null?p-prevP:null;
       const growthHtml=delta!=null&&delta!==0?`<span style="font-size:.6rem;font-weight:700;color:${delta>0?'var(--grn)':'var(--mku)'};margin-left:4px">${delta>0?'↑':'↓'}${Math.abs(delta)}%</span>`:'';
-      return`<tr>
-      <td style="font-weight:600">${a.area}</td><td style="color:var(--txt2);font-size:.68rem">${a.sales}</td>
+      const isNurisSanur=a.area.includes('NAUGHTY NURIS')&&a.area.includes('SANUR');
+      const isNurisSeminyak=a.area.includes('NAUGHTY NURIS')&&a.area.includes('SEMINYAK');
+      const rowCls=isNurisSanur?' class="tr-nuris-sanur"':isNurisSeminyak?' class="tr-nuris-seminyak"':'';
+      const salesBadge=isNurisSanur?`<span class="badge b-pur" style="font-size:.62rem;letter-spacing:0">${a.sales}</span>`:
+                       isNurisSeminyak?`<span class="badge b-org" style="font-size:.62rem;letter-spacing:0">${a.sales}</span>`:
+                       `<span style="color:var(--txt2);font-size:.68rem">${a.sales}</span>`;
+      const areaHtml=isNurisSanur?`<span style="color:var(--pur);font-weight:700">🍖 ${a.area}</span>`:
+                     isNurisSeminyak?`<span style="color:var(--org);font-weight:700">🍖 ${a.area}</span>`:
+                     `<span style="font-weight:600">${a.area}</span>`;
+      return`<tr${rowCls}>
+      <td>${areaHtml}</td><td>${salesBadge}</td>
       <td class="num">${fmtRp(a.food_ach)}</td><td class="num">${fmtRp(a.bev_ach)}</td><td class="num">${fmtRp(a.bakery_ach||0)}</td>
       <td class="num" style="color:var(--txt3)">${fmtRp(_areaTgt(a))}</td>
       <td class="num" style="font-weight:700">${fmtRp(_areaTot(a))}</td>
@@ -492,7 +501,18 @@ function renderTarget(){
     if(balianList.length===0){
       balianEl.innerHTML='<tbody><tr><td colspan="3" style="text-align:center;color:var(--txt3);padding:20px">No Balian data for this date</td></tr></tbody>';
     } else {
-      balianEl.innerHTML=`<thead><tr><th>Area</th><th>Sales</th><th class="num">Achievement</th></tr></thead><tbody>${balianList.map(r=>`<tr><td style="font-weight:600">${r.area}</td><td style="color:var(--txt2);font-size:.68rem">${r.sales}</td><td class="num" style="font-weight:700;color:${r.ach>0?'var(--org)':'var(--txt3)'}">${r.ach>0?fmtRp(r.ach):'—'}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2"><strong>GRAND TOTAL</strong></td><td class="num"><strong style="color:var(--org)">${fmtRp(balianTotal)}</strong></td></tr></tfoot>`;
+      balianEl.innerHTML=`<thead><tr><th>Area</th><th>Sales</th><th class="num">Achievement</th></tr></thead><tbody>${balianList.map(r=>{
+        const isNurisSanur=r.area.includes('NAUGHTY NURIS')&&r.area.includes('SANUR');
+        const isNurisSeminyak=r.area.includes('NAUGHTY NURIS')&&r.area.includes('SEMINYAK');
+        const rowCls=isNurisSanur?' class="tr-nuris-sanur"':isNurisSeminyak?' class="tr-nuris-seminyak"':'';
+        const salesBadge=isNurisSanur?`<span class="badge b-pur" style="font-size:.62rem;letter-spacing:0">${r.sales}</span>`:
+                         isNurisSeminyak?`<span class="badge b-org" style="font-size:.62rem;letter-spacing:0">${r.sales}</span>`:
+                         `<span style="color:var(--txt2);font-size:.68rem">${r.sales}</span>`;
+        const areaHtml=isNurisSanur?`<span style="color:var(--pur);font-weight:700">🍖 ${r.area}</span>`:
+                       isNurisSeminyak?`<span style="color:var(--org);font-weight:700">🍖 ${r.area}</span>`:
+                       `<span style="font-weight:600">${r.area}</span>`;
+        return`<tr${rowCls}><td>${areaHtml}</td><td>${salesBadge}</td><td class="num" style="font-weight:700;color:${r.ach>0?'var(--org)':'var(--txt3)'}">${r.ach>0?fmtRp(r.ach):'—'}</td></tr>`;
+      }).join('')}</tbody><tfoot><tr><td colspan="2"><strong>GRAND TOTAL</strong></td><td class="num"><strong style="color:var(--org)">${fmtRp(balianTotal)}</strong></td></tr></tfoot>`;
     }
   }
 }
@@ -939,7 +959,16 @@ function dlPDF(){
 <div class="tgt-grid">${Object.entries(T).map(([c,t])=>{const p=pct(t.achievement,t.target),col=colP(p);return`<div class="tgt"><div class="tn">${{FOOD:'🍽️ FOOD',BEVERAGE:'🥤 BEVERAGE',BAKERY:'🥐 BAKERY',NESTLE:'☕ NESTLÉ'}[c]||c}</div><div class="tp" style="color:${col}">${p}%</div><div class="pb"><div class="pbf" style="width:${Math.min(p,100)}%;background:${col}"></div></div><div class="psub">${fmtRp(t.achievement)} / ${fmtRp(t.target)}</div></div>`;}).join('')}</div>
 <div class="section-title">📍 Area Performance Detail</div>
 <table><thead><tr><th>Area</th><th>Sales Rep</th><th class="r">Food Ach</th><th class="r">Bev Ach</th><th class="r">Bakery Ach</th><th class="r">Target</th><th class="r">Achieved</th><th>Progress (≥${timePct}%)</th></tr></thead>
-<tbody>${(areas||[]).map(a=>{const p=a.pct,col=colP(p),bkA=a.bakery_ach||0,bkT=a.bakery_target||0;return`<tr><td style="font-weight:600;font-size:.65rem">${a.area}</td><td style="color:#8a93b0;font-size:.61rem">${a.sales}</td><td class="r">${fmtRp(a.food_ach)}</td><td class="r">${fmtRp(a.bev_ach)}</td><td class="r">${fmtRp(bkA)}</td><td class="r" style="color:#8a93b0">${fmtRp(a.food_target+a.bev_target+bkT)}</td><td class="r" style="font-weight:700">${fmtRp(a.food_ach+a.bev_ach+bkA)}</td><td><div style="display:flex;align-items:center;gap:5px"><div class="pbar"><div class="pbar-f" style="width:${Math.min(p,100)}%;background:${col}"></div></div><span style="font-weight:700;color:${col}">${p}%</span></div></td></tr>`;}).join('')}</tbody>
+<tbody>${(areas||[]).map(a=>{const p=a.pct,col=colP(p),bkA=a.bakery_ach||0,bkT=a.bakery_target||0;
+  const isNurisSanur=a.area.includes('NAUGHTY NURIS')&&a.area.includes('SANUR');
+  const isNurisSeminyak=a.area.includes('NAUGHTY NURIS')&&a.area.includes('SEMINYAK');
+  const salesBadge=isNurisSanur?`<span class="badge" style="background:#f5f3ff;color:#7c3aed;font-weight:700">${a.sales}</span>`:
+                   isNurisSeminyak?`<span class="badge" style="background:#fffbeb;color:#d97706;font-weight:700">${a.sales}</span>`:
+                   `<span style="color:#8a93b0;font-size:.61rem">${a.sales}</span>`;
+  const areaLabel=isNurisSanur?`<span style="color:#7c3aed;font-weight:700">${a.area}</span>`:
+                  isNurisSeminyak?`<span style="color:#d97706;font-weight:700">${a.area}</span>`:
+                  a.area;
+  return`<tr><td style="font-weight:600;font-size:.65rem">${areaLabel}</td><td>${salesBadge}</td><td class="r">${fmtRp(a.food_ach)}</td><td class="r">${fmtRp(a.bev_ach)}</td><td class="r">${fmtRp(bkA)}</td><td class="r" style="color:#8a93b0">${fmtRp(a.food_target+a.bev_target+bkT)}</td><td class="r" style="font-weight:700">${fmtRp(a.food_ach+a.bev_ach+bkA)}</td><td><div style="display:flex;align-items:center;gap:5px"><div class="pbar"><div class="pbar-f" style="width:${Math.min(p,100)}%;background:${col}"></div></div><span style="font-weight:700;color:${col}">${p}%</span></div></td></tr>`;}).join('')}</tbody>
 <tfoot><tr><td colspan="2">GRAND TOTAL</td><td class="r" style="color:#2563eb">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_ach,0))}</td><td class="r" style="color:#059669">${fmtRp((areas||[]).reduce((s,a)=>s+a.bev_ach,0))}</td><td class="r" style="color:#d97706">${fmtRp((areas||[]).reduce((s,a)=>s+(a.bakery_ach||0),0))}</td><td class="r">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_target+a.bev_target+(a.bakery_target||0),0))}</td><td class="r">${fmtRp((areas||[]).reduce((s,a)=>s+a.food_ach+a.bev_ach+(a.bakery_ach||0),0))}</td><td><span style="font-weight:700;color:${colP(tp)}">${tp}%</span></td></tr></tfoot></table>
 <div class="section-title">☕ Nestlé Channel Detail</div>
 <table><thead><tr><th>Channel</th><th>Sales Rep</th><th class="r">Target</th><th class="r">Achievement</th><th>Progress</th></tr></thead>
