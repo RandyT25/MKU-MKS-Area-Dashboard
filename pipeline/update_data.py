@@ -42,6 +42,7 @@ SALES_MAP = {
     "NP1":"Ridwan","NP 1":"Ridwan","NP2":"Widi","NP 2":"Widi",
     "NP3":"Gek Mas","NP 3":"Gek Mas","NP4":"Gek Mas",
     "VACANT":"Ronald","Vacant":"Ronald",
+    "RIJAL":"Rijal","Rijal":"Rijal",
     "KA":"KA","Management Bali":"Management Bali","MANAGEMENT BALI":"Management Bali",
 }
 
@@ -53,12 +54,14 @@ AREA_NAME_MAP = {
     "CANGGU 2":"CANGGU 2","GT + FOODY":"GT + FOODY",
     "MODERN TRADE + GENERAL TRADE":"MODERN + GENERAL TRADE",
     "MODERN TRADE + GENERAL":"MODERN + GENERAL TRADE",
+    "MT":"MT",
 }
 
 SALES_NORM_MAP = {
     "PICROM":"Picrom","I MADE LUIH":"I Made Luih","NN MADE LUIH":"I Made Luih",
     "JUNI":"Juni","LANI":"Lani","MONICA":"Monica","SUJANA":"Sujana","NN SUJANA":"Sujana",
     "EKA":"Eka","TAUFIK":"Taufik","DEWI KRISTIANI":"Dewi Kristiani","WIRA":"Wira","SRIASIH":"Sriasih","VACANT":"Ronald",
+    "RIJAL":"Rijal","Rijal":"Rijal",
 }
 
 MONTHS_ID = {
